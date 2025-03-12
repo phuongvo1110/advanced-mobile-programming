@@ -121,7 +121,7 @@ class HomePage extends StatelessWidget {
                                   ),
                                   child: GestureDetector(
                                     onTap: () {
-                                      Navigator.pushNamed(context, '/messages');
+                                      Navigator.pushNamed(context, '/chat');
                                     },
                                     child: Column(
                                       mainAxisSize: MainAxisSize.max,
@@ -188,6 +188,58 @@ class HomePage extends StatelessWidget {
                                         SizedBox(height: 8),
                                         Text(
                                           'Chat History',
+                                          style: JarvisTheme.of(
+                                            context,
+                                          ).bodyMedium.copyWith(
+                                            fontFamily: 'Inter',
+                                            color: Color(0xFF101518),
+                                            fontSize: 14,
+                                            letterSpacing: 0.0,
+                                            fontWeight: FontWeight.normal,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Material(
+                              color: Colors.transparent,
+                              elevation: 1,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Container(
+                                width: 150,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Padding(
+                                  padding: EdgeInsetsDirectional.fromSTEB(
+                                    16,
+                                    16,
+                                    16,
+                                    16,
+                                  ),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.pushNamed(context, '/bots');
+                                    },
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.max,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.smart_toy,
+                                          color: Color(0xFF06D5CD),
+                                          size: 32,
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          'Bots',
                                           style: JarvisTheme.of(
                                             context,
                                           ).bodyMedium.copyWith(

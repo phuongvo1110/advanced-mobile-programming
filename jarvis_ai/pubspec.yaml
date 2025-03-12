@@ -36,6 +36,10 @@ dependencies:
   cupertino_icons: ^1.0.8
   font_awesome_flutter: 10.7.0
   flutter_animate: 4.5.0
+  google_fonts: 6.1.0
+  shared_preferences: 2.3.2
+  dropdown_button2: 2.3.9
+  auto_size_text: 3.0.0
 
 dev_dependencies:
   flutter_test:
