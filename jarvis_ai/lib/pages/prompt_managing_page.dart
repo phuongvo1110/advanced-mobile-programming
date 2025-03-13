@@ -1,0 +1,332 @@
+import 'package:flutter/material.dart';
+import 'package:jarvis_ai/components/card_prompt_widget.dart';
+import 'package:jarvis_ai/theme/flutter_flow_choice_chips.dart';
+import 'package:jarvis_ai/theme/flutter_flow_model.dart';
+import 'package:jarvis_ai/theme/flutter_flow_theme.dart';
+import 'package:jarvis_ai/theme/flutter_flow_util.dart';
+import 'package:jarvis_ai/theme/form_field_controller.dart';
+import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
+import 'package:jarvis_ai/theme/jarvis_theme.dart';
+
+class PromptManagingModel extends FlutterFlowModel<PromptManagingPage> {
+  ///  State fields for stateful widgets in this page.
+
+  // State field(s) for TextField widget.
+  FocusNode? textFieldFocusNode;
+  TextEditingController? textController;
+  String? Function(String?)? textControllerValidator;
+  // State field(s) for ChoiceChips widget.
+  FormFieldController<List<String>>? choiceChipsValueController;
+  String? get choiceChipsValue =>
+      choiceChipsValueController?.value?.firstOrNull;
+  set choiceChipsValue(String? val) =>
+      choiceChipsValueController?.value = val != null ? [val] : [];
+  // Model for CardPromt component.
+  late CardPromtModel cardPromtModel;
+
+  @override
+  void initState(BuildContext context) {
+    cardPromtModel = CardPromtModel();
+  }
+
+  @override
+  void dispose() {
+    textFieldFocusNode?.dispose();
+    textController?.dispose();
+
+    cardPromtModel.dispose();
+  }
+}
+
+class PromptManagingPage extends StatefulWidget {
+  const PromptManagingPage({super.key});
+  @override
+  State<PromptManagingPage> createState() => _PromptManagingWidgetState();
+}
+
+class _PromptManagingWidgetState extends State<PromptManagingPage> {
+  late PromptManagingModel _model;
+  @override
+  void initState() {
+    super.initState();
+    _model = createModel(context, () => PromptManagingModel());
+
+    _model.textController ??= TextEditingController();
+    _model.textFieldFocusNode ??= FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _model.dispose();
+
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: JarvisTheme.of(context).primaryBackground,
+      appBar: AppBar(
+        backgroundColor: JarvisTheme.of(context).secondary,
+        automaticallyImplyLeading: false,
+        leading: JarvisIconButton(
+          borderRadius: 8.0,
+          buttonSize: 40.0,
+          fillColor: JarvisTheme.of(context).secondary,
+          icon: Icon(
+            Icons.arrow_back,
+            color: JarvisTheme.of(context).info,
+            size: 24.0,
+          ),
+          onPressed: () {
+            Navigator.pushNamed(context, '/');
+          },
+        ),
+        title: Text(
+          'My Prompts',
+          style: JarvisTheme.of(context).displaySmall.override(
+            fontFamily: 'Poppins',
+            color: JarvisTheme.of(context).primaryText,
+            letterSpacing: 0.0,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(
+                color: JarvisTheme.of(context).secondaryText,
+                offset: Offset(2.0, 2.0),
+                blurRadius: 2.0,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 12.0, 0.0),
+            child: JarvisIconButton(
+              borderColor: Colors.transparent,
+              borderRadius: 30.0,
+              borderWidth: 1.0,
+              buttonSize: 60.0,
+              icon: Icon(
+                Icons.add_circle_outline_rounded,
+                color: JarvisTheme.of(context).secondaryBackground,
+                size: 30.0,
+              ),
+              onPressed: () async {
+                // context.pushNamed(
+                //   LoginScreenWidget.routeName,
+                //   extra: <String, dynamic>{
+                //     kTransitionInfoKey: TransitionInfo(
+                //       hasTransition: true,
+                //       transitionType: PageTransitionType.bottomToTop,
+                //       duration: Duration(milliseconds: 200),
+                //     ),
+                //   },
+                // );
+              },
+            ),
+          ),
+        ],
+        centerTitle: false,
+        elevation: 0.0,
+      ),
+      body: SafeArea(
+        top: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            Padding(
+              padding: EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 16.0),
+              child: Container(
+                width: double.infinity,
+                child: TextFormField(
+                  controller: _model.textController,
+                  focusNode: _model.textFieldFocusNode,
+                  autofocus: false,
+                  obscureText: false,
+                  decoration: InputDecoration(
+                    hintText: 'Search assistants...',
+                    hintStyle: JarvisTheme.of(context).labelMedium.override(
+                      fontFamily: 'Inter',
+                      letterSpacing: 0.0,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: JarvisTheme.of(context).alternate,
+                        width: 1.0,
+                      ),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: JarvisTheme.of(context).primary,
+                        width: 1.0,
+                      ),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: JarvisTheme.of(context).error,
+                        width: 1.0,
+                      ),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: JarvisTheme.of(context).error,
+                        width: 1.0,
+                      ),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    filled: true,
+                    fillColor: JarvisTheme.of(context).secondaryBackground,
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: JarvisTheme.of(context).secondaryText,
+                      size: 24.0,
+                    ),
+                  ),
+                  style: JarvisTheme.of(context).bodyMedium.override(
+                    fontFamily: 'Inter',
+                    letterSpacing: 0.0,
+                  ),
+                  cursorColor: JarvisTheme.of(context).primaryText,
+                  validator: _model.textControllerValidator,
+                ),
+              ),
+            ),
+            FlutterFlowChoiceChips(
+              options: [
+                ChipData('All'),
+                ChipData('Public'),
+                ChipData('Private'),
+                ChipData('Favorites'),
+              ],
+              onChanged:
+                  (val) => safeSetState(
+                    () => _model.choiceChipsValue = val?.firstOrNull,
+                  ),
+              selectedChipStyle: ChipStyle(
+                backgroundColor: JarvisTheme.of(context).secondary,
+                textStyle: JarvisTheme.of(context).bodyMedium.override(
+                  fontFamily: 'Inter',
+                  color: JarvisTheme.of(context).info,
+                  letterSpacing: 0.0,
+                ),
+                iconColor: JarvisTheme.of(context).info,
+                iconSize: 16.0,
+                labelPadding: EdgeInsetsDirectional.fromSTEB(
+                  15.0,
+                  5.0,
+                  15.0,
+                  5.0,
+                ),
+                elevation: 0.0,
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              unselectedChipStyle: ChipStyle(
+                backgroundColor: JarvisTheme.of(context).secondaryBackground,
+                textStyle: JarvisTheme.of(context).bodyMedium.override(
+                  fontFamily: 'Inter',
+                  color: JarvisTheme.of(context).secondaryText,
+                  letterSpacing: 0.0,
+                ),
+                iconColor: JarvisTheme.of(context).secondaryText,
+                iconSize: 16.0,
+                labelPadding: EdgeInsetsDirectional.fromSTEB(
+                  15.0,
+                  5.0,
+                  15.0,
+                  5.0,
+                ),
+                elevation: 0.0,
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              chipSpacing: 18.0,
+              rowSpacing: 8.0,
+              multiselect: false,
+              alignment: WrapAlignment.center,
+              controller:
+                  _model.choiceChipsValueController ??=
+                      FormFieldController<List<String>>([]),
+              wrapped: true,
+            ),
+            Padding(
+              padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 0.0, 10.0),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                scrollDirection: Axis.vertical,
+                children: [
+                  wrapWithModel(
+                    model: _model.cardPromtModel,
+                    updateCallback: () => safeSetState(() {}),
+                    child: CardPromtWidget(),
+                  ),
+                ],
+              ),
+            ),
+            Align(
+              alignment: AlignmentDirectional(0.0, 1.0),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0x00FFFFFF),
+                      JarvisTheme.of(context).primaryBackground,
+                    ],
+                    stops: [0.0, 1.0],
+                    begin: AlignmentDirectional(-1.0, 0.0),
+                    end: AlignmentDirectional(1.0, 0),
+                  ),
+                ),
+                child: Padding(
+                  padding: EdgeInsetsDirectional.fromSTEB(
+                    16.0,
+                    0.0,
+                    16.0,
+                    16.0,
+                  ),
+                  child: FFButtonWidget(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/create-prompt');
+                    },
+                    text: 'Create New Prompt',
+                    options: FFButtonOptions(
+                      width: double.infinity,
+                      height: 50.0,
+                      padding: EdgeInsetsDirectional.fromSTEB(
+                        16.0,
+                        0.0,
+                        16.0,
+                        0.0,
+                      ),
+                      iconPadding: EdgeInsetsDirectional.fromSTEB(
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                      ),
+                      color: JarvisTheme.of(context).secondary,
+                      textStyle: JarvisTheme.of(context).titleSmall.override(
+                        fontFamily: 'Inter Tight',
+                        color: JarvisTheme.of(context).info,
+                        letterSpacing: 0.0,
+                      ),
+                      elevation: 0.0,
+                      borderSide: BorderSide(
+                        color: Colors.transparent,
+                        width: 1.0,
+                      ),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

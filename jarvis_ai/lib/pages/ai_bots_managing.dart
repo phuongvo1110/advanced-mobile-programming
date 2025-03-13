@@ -93,16 +93,7 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
                 size: 30.0,
               ),
               onPressed: () async {
-                // context.pushNamed(
-                //   LoginScreenWidget.routeName,
-                //   extra: <String, dynamic>{
-                //     kTransitionInfoKey: TransitionInfo(
-                //       hasTransition: true,
-                //       transitionType: PageTransitionType.bottomToTop,
-                //       duration: Duration(milliseconds: 200),
-                //     ),
-                //   },
-                // );
+                Navigator.pushNamed(context, '/create-bot');
               },
             ),
           ),

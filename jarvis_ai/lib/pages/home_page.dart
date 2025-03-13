@@ -46,7 +46,7 @@ class HomePage extends StatelessWidget {
                 size: 30,
               ),
               onPressed: () async {
-                Navigator.pushNamed(context, '/login');
+                Navigator.pushNamed(context, '/profile');
               },
             ),
           ),
@@ -256,6 +256,59 @@ class HomePage extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            Material(
+                              color: Colors.transparent,
+                              elevation: 1,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Container(
+                                width: 150,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Padding(
+                                  padding: EdgeInsetsDirectional.fromSTEB(
+                                    16,
+                                    16,
+                                    16,
+                                    16,
+                                  ),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.pushNamed(context, '/prompts');
+                                    },
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.max,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.text_fields,
+                                          color: Color(0xFF06D5CD),
+                                          size: 32,
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          'Prompts',
+                                          style: JarvisTheme.of(
+                                            context,
+                                          ).bodyMedium.copyWith(
+                                            fontFamily: 'Inter',
+                                            color: Color(0xFF101518),
+                                            fontSize: 14,
+                                            letterSpacing: 0.0,
+                                            fontWeight: FontWeight.normal,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          
                           ],
                         ),
                       ],
