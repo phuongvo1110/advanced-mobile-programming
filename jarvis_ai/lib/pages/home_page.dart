@@ -1,11 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, required this.apiStore});
+  final ApiStore apiStore;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -308,7 +310,6 @@ class HomePage extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          
                           ],
                         ),
                       ],

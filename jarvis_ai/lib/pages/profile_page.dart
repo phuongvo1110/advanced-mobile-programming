@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:jarvis_ai/models/member.dart';
+import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/flutter_flow_animations.dart';
 import 'package:jarvis_ai/theme/flutter_flow_model.dart';
 import 'package:jarvis_ai/theme/flutter_flow_theme.dart';
@@ -20,8 +22,8 @@ class ProfilePageModel extends FlutterFlowModel<ProfilePage> {
 }
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
-
+  const ProfilePage({super.key, required this.apiStore});
+  final ApiStore apiStore;
   static String routeName = 'ProfilePage';
   static String routePath = '/profilePage';
 
@@ -32,7 +34,8 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageWidgetState extends State<ProfilePage>
     with TickerProviderStateMixin {
   late ProfilePageModel _model;
-
+  Member? member;
+  bool _isLoading = false;
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
   final animationsMap = <String, AnimationInfo>{};
@@ -41,7 +44,7 @@ class _ProfilePageWidgetState extends State<ProfilePage>
   void initState() {
     super.initState();
     _model = createModel(context, () => ProfilePageModel());
-
+    _loadMemberData();
     animationsMap.addAll({
       'cardOnPageLoadAnimation': AnimationInfo(
         trigger: AnimationTrigger.onPageLoad,
@@ -229,8 +232,29 @@ class _ProfilePageWidgetState extends State<ProfilePage>
     super.dispose();
   }
 
+  Future<void> _loadMemberData() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      final member = await widget.apiStore.jarvisService.getCurrentUser();
+      if (member != null && mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to load user data: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final member = widget.apiStore.jarvisService.member;
     return GestureDetector(
       onTap: () {
         FocusScope.of(context).unfocus();
@@ -290,7 +314,7 @@ class _ProfilePageWidgetState extends State<ProfilePage>
               Padding(
                 padding: EdgeInsetsDirectional.fromSTEB(0.0, 12.0, 0.0, 0.0),
                 child: Text(
-                  'Andrea Davis',
+                  member?.username ?? 'Guest',
                   style: JarvisTheme.of(context).headlineSmall.override(
                     fontFamily: 'Inter Tight',
                     letterSpacing: 0.0,
@@ -300,7 +324,7 @@ class _ProfilePageWidgetState extends State<ProfilePage>
               Padding(
                 padding: EdgeInsetsDirectional.fromSTEB(0.0, 4.0, 0.0, 0.0),
                 child: Text(
-                  'andrea@domainname.com',
+                  member?.email ?? 'No email',
                   style: JarvisTheme.of(context).titleSmall.override(
                     fontFamily: 'Inter Tight',
                     color: JarvisTheme.of(context).secondary,
@@ -487,12 +511,8 @@ class _ProfilePageWidgetState extends State<ProfilePage>
                 padding: EdgeInsetsDirectional.fromSTEB(0.0, 16.0, 0.0, 0.0),
                 child: FFButtonWidget(
                   onPressed: () async {
-                    // GoRouter.of(context).prepareAuthEvent();
-                    // await authManager.signOut();
-                    // GoRouter.of(context).clearRedirectLocation();
-
-                    // context.goNamedAuth(
-                    //     LoginScreenWidget.routeName, context.mounted);
+                    await widget.apiStore.authService.logout();
+                    Navigator.pushNamed(context, '/login');
                   },
                   text: 'Log Out',
                   options: FFButtonOptions(

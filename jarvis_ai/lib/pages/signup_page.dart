@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io';
@@ -47,7 +48,8 @@ class SignupScreenModel {
 }
 
 class SignupPage extends StatefulWidget {
-  const SignupPage({super.key});
+  const SignupPage({super.key, required this.apiStore});
+  final ApiStore apiStore;
   @override
   State<SignupPage> createState() => _SignupPageWidgetState();
 }
@@ -55,6 +57,7 @@ class SignupPage extends StatefulWidget {
 class _SignupPageWidgetState extends State<SignupPage> {
   late SignupScreenModel _model;
   final bool isAndroid = Platform.isAndroid;
+  bool _isLoading = false;
   @override
   void initState() {
     super.initState();
@@ -65,6 +68,52 @@ class _SignupPageWidgetState extends State<SignupPage> {
   void dispose() {
     _model.dispose();
     super.dispose();
+  }
+
+  Future<void> _signupUser() async {
+    if (_model.emailAddressTextControllerValidator!(
+          _model.emailAddressTextController.text,
+        ) !=
+        null) {
+      return;
+    }
+    if (_model.passwordTextControllerValidator!(
+          _model.passwordTextController.text,
+        ) !=
+        null) {
+      return;
+    }
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final response = await widget.apiStore.authService.signup(email: _model.emailAddressTextController.text, password: _model.passwordTextController.text);
+    if (response == true) {
+      Navigator.pushNamed(context, '/');
+    }
+    } catch(e) {
+      _showErrorDialog(e.toString());
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Login Error'),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
   }
 
   @override
@@ -333,23 +382,9 @@ class _SignupPageWidgetState extends State<SignupPage> {
                               16,
                             ),
                             child: ElevatedButton(
-                              onPressed: () async {
-                                // GoRouter.of(context).prepareAuthEvent();
-
-                                // final user = await authManager.signInWithEmail(
-                                //   context,
-                                //   _model.emailAddressTextController.text,
-                                //   _model.passwordTextController.text,
-                                // );
-                                // if (user == null) {
-                                //   return;
-                                // }
-
-                                // context.goNamedAuth(
-                                //   HomePageWidget.routeName,
-                                //   context.mounted,
-                                // );
-                              },
+                              onPressed: 
+                                _isLoading ? null : _signupUser
+                              ,
                               child: Text('Create Account'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor:

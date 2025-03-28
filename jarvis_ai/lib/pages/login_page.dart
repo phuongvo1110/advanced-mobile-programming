@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io';
@@ -47,7 +48,8 @@ class LoginScreenModel {
 }
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, required this.apiStore});
+  final ApiStore apiStore;
   @override
   State<LoginPage> createState() => _LoginPageWidgetState();
 }
@@ -55,10 +57,61 @@ class LoginPage extends StatefulWidget {
 class _LoginPageWidgetState extends State<LoginPage> {
   late LoginScreenModel _model;
   final bool isAndroid = Platform.isAndroid;
+  bool _isLoading = false;
   @override
   void initState() {
     super.initState();
     _model = LoginScreenModel();
+  }
+
+  Future<void> _loginUser() async {
+    if (_model.emailAddressTextControllerValidator!(
+          _model.emailAddressTextController.text,
+        ) !=
+        null) {
+      return;
+    }
+    if (_model.passwordTextControllerValidator!(
+          _model.passwordTextController.text,
+        ) !=
+        null) {
+      return;
+    }
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final response = await widget.apiStore.authService.login(
+        email: _model.emailAddressTextController.text,
+        password: _model.passwordTextController.text,
+      );
+      if (response == true) {
+        Navigator.pushNamed(context, '/');
+      }
+    } catch (e) {
+      _showErrorDialog(e.toString());
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Login Error'),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
   }
 
   @override
@@ -333,24 +386,7 @@ class _LoginPageWidgetState extends State<LoginPage> {
                               16,
                             ),
                             child: ElevatedButton(
-                              onPressed: () {
-                                // GoRouter.of(context).prepareAuthEvent();
-
-                                // final user = await authManager.signInWithEmail(
-                                //   context,
-                                //   _model.emailAddressTextController.text,
-                                //   _model.passwordTextController.text,
-                                // );
-                                // if (user == null) {
-                                //   return;
-                                // }
-
-                                // context.goNamedAuth(
-                                //   HomePageWidget.routeName,
-                                //   context.mounted,
-                                // );
-                                Navigator.pushNamed(context, '/');
-                              },
+                              onPressed: _isLoading ? null : _loginUser,
                               child: Text('Sign In'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor:

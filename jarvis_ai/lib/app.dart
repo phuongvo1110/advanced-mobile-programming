@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:jarvis_ai/routes.dart';
+import 'package:jarvis_ai/stores/api_store.dart';
+import 'package:provider/provider.dart';
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -14,6 +17,12 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  late final ApiStore _apiStore;
+  @override
+  void initState() {
+    super.initState();
+    _apiStore = ApiStore()..initServices();
+  }
 
   String getCurrentRoute() {
     final context = navigatorKey.currentContext;
@@ -27,11 +36,22 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Jarvis AI',
-      navigatorKey: navigatorKey, // Assign the navigator key
-      initialRoute: '/',
-      onGenerateRoute: AppRoutes.generateRoute,
+    return Provider<ApiStore>.value(
+      value: _apiStore,
+      child: MaterialApp(
+        title: 'Jarvis AI',
+        navigatorKey: navigatorKey,
+        initialRoute: '/login',
+        onGenerateRoute: AppRoutes.generateRoute,
+        builder: (context, child) {
+          return Observer(
+            builder: (context) {
+              // Any global reactions to store changes can go here
+              return child!;
+            },
+          );
+        },
+      ),
     );
   }
 }
