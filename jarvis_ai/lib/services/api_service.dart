@@ -30,7 +30,10 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      throw ApiException(e.toString(), 0);
+      if (e is ApiException) {
+      rethrow; // Don't wrap ApiException again
+    }
+    throw ApiException(e.toString(), 0, {'rawError': e.toString()});
     }
   }
 
@@ -63,20 +66,27 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      throw ApiException(e.toString(), 0);
+      // throw ApiException(e.toString(), 0, 'Invalid');
     }
   }
 
   dynamic _handleResponse(http.Response response) {
-    final responseData = json.decode(response.body);
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return responseData;
-    } else {
-      throw ApiException(
-        responseData['message'] ?? 'Something went wrong',
-        response.statusCode,
-      );
-    }
+  final responseData = json.decode(response.body);
+  
+  if (response.statusCode >= 200 && response.statusCode < 300) {
+    return responseData;
+  } else {
+    final errorData = responseData is Map ? responseData : {};
+    final errorCode = errorData['code']?.toString();
+    final errorMessage = errorData['error']?.toString() ?? 
+                       errorData['message']?.toString() ?? 
+                       'Request failed with status ${response.statusCode}';
+    
+    throw ApiException(
+      errorMessage,
+      response.statusCode,
+      errorData
+    );
   }
+}
 }

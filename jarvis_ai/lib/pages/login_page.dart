@@ -5,6 +5,7 @@ import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io';
+import 'package:mobx/mobx.dart';
 
 class LoginScreenModel {
   TextEditingController emailAddressTextController = TextEditingController();
@@ -15,6 +16,12 @@ class LoginScreenModel {
   bool passwordVisibility = false;
   String? Function(String?)? emailAddressTextControllerValidator;
   String? Function(String?)? passwordTextControllerValidator;
+
+  @observable
+  String? emailError;
+
+  @observable
+  String? passwordError;
   LoginScreenModel() {
     // Initialize validators
     emailAddressTextControllerValidator = (String? value) {
@@ -39,6 +46,16 @@ class LoginScreenModel {
       return null;
     };
   }
+  bool validate() {
+    emailError = emailAddressTextControllerValidator?.call(
+      emailAddressTextController.text,
+    );
+    passwordError = passwordTextControllerValidator?.call(
+      passwordTextController.text,
+    );
+    return emailError == null && passwordError == null;
+  }
+
   void dispose() {
     emailAddressTextController.dispose();
     passwordTextController.dispose();
@@ -65,16 +82,20 @@ class _LoginPageWidgetState extends State<LoginPage> {
   }
 
   Future<void> _loginUser() async {
-    if (_model.emailAddressTextControllerValidator!(
-          _model.emailAddressTextController.text,
-        ) !=
-        null) {
-      return;
-    }
-    if (_model.passwordTextControllerValidator!(
-          _model.passwordTextController.text,
-        ) !=
-        null) {
+    // if (_model.emailAddressTextControllerValidator!(
+    //       _model.emailAddressTextController.text,
+    //     ) !=
+    //     null) {
+    //   return;
+    // }
+    // if (_model.passwordTextControllerValidator!(
+    //       _model.passwordTextController.text,
+    //     ) !=
+    //     null) {
+    //   return;
+    // }
+    if (!_model.validate()) {
+      setState(() {});
       return;
     }
     setState(() {
@@ -237,6 +258,11 @@ class _LoginPageWidgetState extends State<LoginPage> {
                                 autofocus: true,
                                 autofillHints: [AutofillHints.email],
                                 obscureText: false,
+                                onChanged: (value) {
+                                  if (_model.emailError != null) {
+                                    setState(() => _model.emailError = null);
+                                  }
+                                },
                                 decoration: InputDecoration(
                                   labelText: 'Email',
                                   labelStyle: JarvisTheme.of(
@@ -244,6 +270,12 @@ class _LoginPageWidgetState extends State<LoginPage> {
                                   ).labelLarge.copyWith(
                                     fontFamily: 'Inter',
                                     letterSpacing: 0.0,
+                                  ),
+                                  errorText: _model.emailError,
+                                  errorStyle: JarvisTheme.of(
+                                    context,
+                                  ).bodySmall.copyWith(
+                                    color: JarvisTheme.of(context).error,
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
@@ -287,8 +319,7 @@ class _LoginPageWidgetState extends State<LoginPage> {
                                   letterSpacing: 0.0,
                                 ),
                                 keyboardType: TextInputType.emailAddress,
-                                validator:
-                                    _model.emailAddressTextControllerValidator,
+                                validator: null,
                               ),
                             ),
                           ),
@@ -305,6 +336,12 @@ class _LoginPageWidgetState extends State<LoginPage> {
                                 controller: _model.passwordTextController,
                                 focusNode: _model.passwordFocusNode,
                                 autofocus: true,
+                                onChanged: (value) {
+                                  // Clear error when typing
+                                  if (_model.passwordError != null) {
+                                    setState(() => _model.passwordError = null);
+                                  }
+                                },
                                 autofillHints: [AutofillHints.password],
                                 obscureText: !_model.passwordVisibility,
                                 decoration: InputDecoration(
@@ -314,6 +351,12 @@ class _LoginPageWidgetState extends State<LoginPage> {
                                   ).labelLarge.copyWith(
                                     fontFamily: 'Inter',
                                     letterSpacing: 0.0,
+                                  ),
+                                  errorText: _model.passwordError,
+                                  errorStyle: JarvisTheme.of(
+                                    context,
+                                  ).bodySmall.copyWith(
+                                    color: JarvisTheme.of(context).error,
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
@@ -373,8 +416,7 @@ class _LoginPageWidgetState extends State<LoginPage> {
                                   fontFamily: 'Inter',
                                   letterSpacing: 0.0,
                                 ),
-                                validator:
-                                    _model.passwordTextControllerValidator,
+                                validator: null,
                               ),
                             ),
                           ),

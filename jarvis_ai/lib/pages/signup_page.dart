@@ -6,6 +6,8 @@ import 'package:jarvis_ai/theme/jarvis_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io';
 
+import 'package:mobx/mobx.dart';
+
 class SignupScreenModel {
   TextEditingController emailAddressTextController = TextEditingController();
   TextEditingController passwordTextController = TextEditingController();
@@ -15,6 +17,12 @@ class SignupScreenModel {
   bool passwordVisibility = false;
   String? Function(String?)? emailAddressTextControllerValidator;
   String? Function(String?)? passwordTextControllerValidator;
+
+  @observable
+  String? emailError;
+
+  @observable
+  String? passwordError;
   SignupScreenModel() {
     // Initialize validators
     emailAddressTextControllerValidator = (String? value) {
@@ -39,6 +47,16 @@ class SignupScreenModel {
       return null;
     };
   }
+  bool validate() {
+    emailError = emailAddressTextControllerValidator?.call(
+      emailAddressTextController.text,
+    );
+    passwordError = passwordTextControllerValidator?.call(
+      passwordTextController.text,
+    );
+    return emailError == null && passwordError == null;
+  }
+
   void dispose() {
     emailAddressTextController.dispose();
     passwordTextController.dispose();
@@ -71,27 +89,35 @@ class _SignupPageWidgetState extends State<SignupPage> {
   }
 
   Future<void> _signupUser() async {
-    if (_model.emailAddressTextControllerValidator!(
-          _model.emailAddressTextController.text,
-        ) !=
-        null) {
-      return;
-    }
-    if (_model.passwordTextControllerValidator!(
-          _model.passwordTextController.text,
-        ) !=
-        null) {
+    // if (_model.emailAddressTextControllerValidator!(
+    //       _model.emailAddressTextController.text,
+    //     ) !=
+    //     null) {
+    //   return;
+    // }
+    // if (_model.passwordTextControllerValidator!(
+    //       _model.passwordTextController.text,
+    //     ) !=
+    //     null) {
+    //   return;
+    // }
+    if (!_model.validate()) {
+      setState(() {});
       return;
     }
     setState(() {
       _isLoading = true;
     });
     try {
-      final response = await widget.apiStore.authService.signup(email: _model.emailAddressTextController.text, password: _model.passwordTextController.text);
-    if (response == true) {
-      Navigator.pushNamed(context, '/');
-    }
-    } catch(e) {
+      final response = await widget.apiStore.authService.signup(
+        email: _model.emailAddressTextController.text,
+        password: _model.passwordTextController.text,
+      );
+      if (response == true) {
+        Navigator.pushNamed(context, '/');
+      }
+    } catch (e) {
+      print(e.toString());
       _showErrorDialog(e.toString());
     } finally {
       setState(() {
@@ -99,12 +125,13 @@ class _SignupPageWidgetState extends State<SignupPage> {
       });
     }
   }
+
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text('Login Error'),
+            title: const Text('Signup Error'),
             content: Text(message),
             actions: [
               TextButton(
@@ -233,6 +260,11 @@ class _SignupPageWidgetState extends State<SignupPage> {
                                 autofocus: true,
                                 autofillHints: [AutofillHints.email],
                                 obscureText: false,
+                                onChanged: (value) {
+                                  if (_model.emailError != null) {
+                                    setState(() => _model.emailError = null);
+                                  }
+                                },
                                 decoration: InputDecoration(
                                   labelText: 'Email',
                                   labelStyle: JarvisTheme.of(
@@ -240,6 +272,12 @@ class _SignupPageWidgetState extends State<SignupPage> {
                                   ).labelLarge.copyWith(
                                     fontFamily: 'Inter',
                                     letterSpacing: 0.0,
+                                  ),
+                                  errorText: _model.emailError,
+                                  errorStyle: JarvisTheme.of(
+                                    context,
+                                  ).bodySmall.copyWith(
+                                    color: JarvisTheme.of(context).error,
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
@@ -283,8 +321,7 @@ class _SignupPageWidgetState extends State<SignupPage> {
                                   letterSpacing: 0.0,
                                 ),
                                 keyboardType: TextInputType.emailAddress,
-                                validator:
-                                    _model.emailAddressTextControllerValidator,
+                                validator: null,
                               ),
                             ),
                           ),
@@ -301,6 +338,12 @@ class _SignupPageWidgetState extends State<SignupPage> {
                                 controller: _model.passwordTextController,
                                 focusNode: _model.passwordFocusNode,
                                 autofocus: true,
+                                onChanged: (value) {
+                                  // Clear error when typing
+                                  if (_model.passwordError != null) {
+                                    setState(() => _model.passwordError = null);
+                                  }
+                                },
                                 autofillHints: [AutofillHints.password],
                                 obscureText: !_model.passwordVisibility,
                                 decoration: InputDecoration(
@@ -310,6 +353,12 @@ class _SignupPageWidgetState extends State<SignupPage> {
                                   ).labelLarge.copyWith(
                                     fontFamily: 'Inter',
                                     letterSpacing: 0.0,
+                                  ),
+                                  errorText: _model.passwordError,
+                                  errorStyle: JarvisTheme.of(
+                                    context,
+                                  ).bodySmall.copyWith(
+                                    color: JarvisTheme.of(context).error,
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
@@ -369,8 +418,7 @@ class _SignupPageWidgetState extends State<SignupPage> {
                                   fontFamily: 'Inter',
                                   letterSpacing: 0.0,
                                 ),
-                                validator:
-                                    _model.passwordTextControllerValidator,
+                                validator: null,
                               ),
                             ),
                           ),
@@ -382,9 +430,7 @@ class _SignupPageWidgetState extends State<SignupPage> {
                               16,
                             ),
                             child: ElevatedButton(
-                              onPressed: 
-                                _isLoading ? null : _signupUser
-                              ,
+                              onPressed: _isLoading ? null : _signupUser,
                               child: Text('Create Account'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor:

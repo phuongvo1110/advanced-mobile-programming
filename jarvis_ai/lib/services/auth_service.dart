@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jarvis_ai/models/user.dart';
+import 'package:jarvis_ai/services/exceptions/api_exception.dart';
 import 'package:mobx/mobx.dart';
 import 'package:jarvis_ai/services/api_service.dart';
 part 'auth_service.g.dart';
@@ -41,9 +42,13 @@ abstract class _AuthService with Store {
       print('Login successful! User ID: ${currentUser?.userId}');
       await _saveUserData();
       return true;
+    } on ApiException catch (e) {
+      // Don't wrap the exception again, just rethrow
+      rethrow;
     } catch (e) {
-      print('Failed to login: $e');
-      return false;
+      throw ApiException('An unexpected error occurred during signup', 0, {
+        'rawError': e.toString(),
+      });
     } finally {
       isLoading = false;
     }
@@ -98,9 +103,13 @@ abstract class _AuthService with Store {
       print('Signup response: $response');
       currentUser = UserModel.fromJson(response);
       return true;
+    } on ApiException catch (e) {
+      // Don't wrap the exception again, just rethrow
+      rethrow;
     } catch (e) {
-      print('Failed to signup: $e');
-      return false;
+      throw ApiException('An unexpected error occurred during signup', 0, {
+        'rawError': e.toString(),
+      });
     } finally {
       isLoading = false;
     }
