@@ -1,1 +1,6 @@
 .qodo
+jarvis_ai/linux/flutter/generated_plugin_registrant.cc
+jarvis_ai/linux/flutter/generated_plugins.cmake
+jarvis_ai/macos/Flutter/GeneratedPluginRegistrant.swift
+jarvis_ai/windows/flutter/generated_plugin_registrant.cc
+jarvis_ai/windows/flutter/generated_plugins.cmake
