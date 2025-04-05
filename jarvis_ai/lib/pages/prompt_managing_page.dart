@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:jarvis_ai/components/card_prompt_widget.dart';
+import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/flutter_flow_choice_chips.dart';
 import 'package:jarvis_ai/theme/flutter_flow_model.dart';
 import 'package:jarvis_ai/theme/flutter_flow_theme.dart';
@@ -39,24 +41,57 @@ class PromptManagingModel extends FlutterFlowModel<PromptManagingPage> {
 }
 
 class PromptManagingPage extends StatefulWidget {
-  const PromptManagingPage({super.key});
+  const PromptManagingPage({super.key, required this.apiStore});
+  final ApiStore apiStore;
   @override
   State<PromptManagingPage> createState() => _PromptManagingWidgetState();
 }
 
 class _PromptManagingWidgetState extends State<PromptManagingPage> {
   late PromptManagingModel _model;
+  final ScrollController _scrollController = ScrollController();
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => PromptManagingModel());
-
+    _scrollController.addListener(_scrollListener);
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
+    _loadPrompts(refresh: true);
+  }
+
+  void _scrollListener() {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
+      _loadPrompts();
+    }
+  }
+
+  Future<void> _loadPrompts({bool refresh = false}) async {
+    try {
+      await widget.apiStore.jarvisService.getPrompts(
+        refresh: refresh,
+        search: _model.textController.text,
+        isPublic:
+            _model.choiceChipsValue == 'Public'
+                ? true
+                : _model.choiceChipsValue == 'Private'
+                ? false
+                : null,
+        isFavorite: _model.choiceChipsValue == 'Favorites' ? true : null,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load prompts: ${e.toString()}')),
+      );
+    }
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_scrollListener);
+    // _model.textController.removeListener(_onSearchChanged);
+    _scrollController.dispose();
     _model.dispose();
 
     super.dispose();
@@ -143,6 +178,9 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
                   focusNode: _model.textFieldFocusNode,
                   autofocus: false,
                   obscureText: false,
+                  onChanged: (value) {
+                    _loadPrompts(refresh: true);
+                  },
                   decoration: InputDecoration(
                     hintText: 'Search assistants...',
                     hintStyle: JarvisTheme.of(context).labelMedium.override(
@@ -250,19 +288,44 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
                       FormFieldController<List<String>>([]),
               wrapped: true,
             ),
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 0.0, 10.0),
-              child: ListView(
-                padding: EdgeInsets.zero,
-                shrinkWrap: true,
-                scrollDirection: Axis.vertical,
-                children: [
-                  wrapWithModel(
-                    model: _model.cardPromtModel,
-                    updateCallback: () => safeSetState(() {}),
-                    child: CardPromtWidget(),
-                  ),
-                ],
+            Expanded(
+              child: Observer(
+                builder: (context) {
+                  if (widget.apiStore.jarvisService.isLoading &&
+                      widget.apiStore.jarvisService.prompts.isEmpty) {
+                    return Center(child: CircularProgressIndicator());
+                  }
+
+                  return RefreshIndicator(
+                    onRefresh:
+                        () => widget.apiStore.jarvisService.refreshPrompts(),
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      itemCount:
+                          widget.apiStore.jarvisService.prompts.length +
+                          (widget.apiStore.jarvisService.hasMorePrompts
+                              ? 1
+                              : 0),
+                      itemBuilder: (context, index) {
+                        if (index >=
+                            widget.apiStore.jarvisService.prompts.length) {
+                          return widget.apiStore.jarvisService.isLoading
+                              ? Center(child: CircularProgressIndicator())
+                              : SizedBox.shrink();
+                        }
+
+                        final prompt =
+                            widget.apiStore.jarvisService.prompts[index];
+                        return CardPromtWidget(
+                          prompt: prompt,
+                          onFavoriteChanged: (isFavorite) {
+                            // Handle favorite toggle
+                          },
+                        );
+                      },
+                    ),
+                  );
+                },
               ),
             ),
             Align(

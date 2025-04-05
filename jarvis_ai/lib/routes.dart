@@ -32,7 +32,7 @@ class AppRoutes {
       case '/create-bot':
         return MaterialPageRoute(builder: (_) => const AIBotCreatePageWidget());
       case '/prompts':
-        return MaterialPageRoute(builder: (_) => const PromptManagingPage());
+        return MaterialPageRoute(builder: (_) => PromptManagingPage(apiStore: apiStore));
       case '/create-prompt':
         return MaterialPageRoute(builder: (_) => const PromptCreatingPage());
       case '/profile':

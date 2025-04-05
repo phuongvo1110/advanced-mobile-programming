@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jarvis_ai/models/prompt.dart';
 import 'package:jarvis_ai/theme/flutter_flow_model.dart';
 import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
@@ -11,9 +12,14 @@ class CardPromtModel extends FlutterFlowModel<CardPromtWidget> {
   void dispose() {}
 }
 
-
 class CardPromtWidget extends StatefulWidget {
-  const CardPromtWidget({super.key});
+  final Prompt prompt;
+  final Function(bool)? onFavoriteChanged;
+  const CardPromtWidget({
+    super.key,
+    required this.prompt,
+    this.onFavoriteChanged,
+  });
 
   @override
   State<CardPromtWidget> createState() => _CardPromtWidgetState();
@@ -53,7 +59,7 @@ class _CardPromtWidgetState extends State<CardPromtWidget> {
               Padding(
                 padding: EdgeInsetsDirectional.fromSTEB(0.0, 12.0, 0.0, 0.0),
                 child: Text(
-                  'Data Analysis Expert',
+                  widget.prompt.title,
                   style: JarvisTheme.of(context).titleLarge.override(
                     fontFamily: 'Inter Tight',
                     letterSpacing: 0.0,
@@ -63,7 +69,7 @@ class _CardPromtWidgetState extends State<CardPromtWidget> {
               Padding(
                 padding: EdgeInsetsDirectional.fromSTEB(0.0, 8.0, 0.0, 0.0),
                 child: Text(
-                  'You are a data analaysis expert who helps users interpret complex datasets. Provide clear explanation of statistical concempts and guid',
+                  widget.prompt.description ?? '',
                   style: JarvisTheme.of(context).labelMedium.override(
                     fontFamily: 'Inter',
                     letterSpacing: 0.0,
@@ -176,12 +182,19 @@ class _CardPromtWidgetState extends State<CardPromtWidget> {
                           buttonSize: 40.0,
                           fillColor: JarvisTheme.of(context).secondary,
                           icon: Icon(
-                            Icons.favorite,
-                            color: Colors.white,
+                            widget.prompt.isFavorite
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            color:
+                                widget.prompt.isFavorite
+                                    ? Colors.red
+                                    : Colors.white,
                             size: 20.0,
                           ),
                           onPressed: () {
-                            print('IconButton pressed ...');
+                            widget.onFavoriteChanged?.call(
+                              !widget.prompt.isFavorite,
+                            );
                           },
                         ),
                       ),
