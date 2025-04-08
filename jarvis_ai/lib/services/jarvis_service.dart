@@ -66,6 +66,7 @@ abstract class _JarvisService with Store {
     }
   }
 
+  @action
   Future<void> getPrompts({
     int limit = 20,
     int offset = 0,
@@ -131,5 +132,197 @@ abstract class _JarvisService with Store {
   @action
   Future<void> refreshPrompts() async {
     await getPrompts(refresh: true);
+  }
+
+  @action
+  Future<void> toggleFavorite(String id) async {
+    try {
+      UserModel? user = await getUser();
+      Prompt prompt = prompts.firstWhere((x) => x.id == id);
+      if (prompt.isFavorite != null) {
+        final response =
+            !prompt.isFavorite!
+                ? await http.post(
+                  Uri.parse('$baseUrl/api/v1/prompts/${id}/favorite'),
+                  headers: {
+                    'x-jarvis-guid': '',
+                    'Authorization': 'Bearer ${user?.accessToken}',
+                  },
+                  body: {},
+                )
+                : await http.delete(
+                  Uri.parse('$baseUrl/api/v1/prompts/${id}/favorite'),
+                  headers: {
+                    'x-jarvis-guid': '',
+                    'Authorization': 'Bearer ${user?.accessToken}',
+                  },
+                );
+        print(response.body);
+        final index = prompts.indexWhere((prompt) => prompt.id == id);
+        if (index != -1) {
+          final oldPrompt = prompts[index];
+          final newPrompt = Prompt(
+            id: oldPrompt.id,
+            title: oldPrompt.title,
+            description: oldPrompt.description,
+            isPublic: oldPrompt.isPublic,
+            isFavorite: !oldPrompt.isFavorite!,
+            createdAt: oldPrompt.createdAt,
+            updatedAt: oldPrompt.updatedAt,
+            content: oldPrompt.content,
+            userId: oldPrompt.userId,
+            userName: oldPrompt.userName,
+          );
+          prompts[index] = newPrompt;
+        }
+      }
+    } catch (e) {
+      print('Error toggling favorite: $e');
+      rethrow;
+    }
+  }
+
+  @action
+  Future<Prompt> createPrompt({
+    required String title,
+    required String content,
+    String? description,
+    required bool isPublic,
+    String? category,
+    String? language,
+  }) async {
+    try {
+      UserModel? user = await getUser();
+      isLoading = true;
+      if (title.trim().isEmpty) {
+        throw Exception('Title is required');
+      }
+      if (content.trim().isEmpty) {
+        throw Exception('Content is required');
+      }
+
+      // Prepare the request body
+      final requestBody = {
+        'title': title.trim(),
+        'content': content.trim(),
+        'isPublic': isPublic,
+        if (description != null && description.trim().isNotEmpty)
+          'description': description.trim(),
+        if (category != null && category.trim().isNotEmpty)
+          'category': category.trim().toLowerCase(),
+      };
+
+      print('Request body: $requestBody');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/v1/prompts'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user?.accessToken}',
+        },
+        body: jsonEncode(requestBody),
+      );
+      if (response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        final newPrompt = Prompt.fromJson(data);
+        print('New Prompt $newPrompt');
+        return newPrompt;
+      } else {
+        throw Exception('Failed to create prompt: ${response.body}');
+      }
+    } catch (e) {
+      print('Error creating prompt: $e');
+      rethrow;
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  @action
+  Future<Prompt?> updatePrompt(Prompt updatePrompt) async {
+    try {
+      isLoading = true;
+      final user = await getUser();
+      if (user == null) throw Exception('User not logged in');
+      final requestBody = {
+        'title': updatePrompt.title.trim(),
+        'content': updatePrompt.content.trim(),
+        'isPublic': updatePrompt.isPublic,
+        if (updatePrompt.description != null &&
+            updatePrompt.description!.trim().isNotEmpty)
+          'description': updatePrompt.description!.trim(),
+        if (updatePrompt.category != null &&
+            updatePrompt.category!.trim().isNotEmpty)
+          'category': updatePrompt.category!.trim().toLowerCase(),
+      };
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/v1/prompts/${updatePrompt.id}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user.accessToken}',
+        },
+        body: jsonEncode(requestBody),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final updatedPrompt = Prompt.fromJson(data);
+
+        final index = prompts.indexWhere((p) => p.id == updatePrompt.id);
+        if (index != -1) {
+          prompts[index] = updatedPrompt;
+        }
+        return updatedPrompt;
+      } else {
+        throw Exception('Failed to update prompt: ${response.body}');
+      }
+    } catch (e) {
+      print('Error updating prompt: $e');
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  @action
+  Future<bool> deletePrompt(String id) async {
+    try {
+      isLoading = true;
+      final user = await getUser();
+      if (user == null) throw Exception('User not logged in');
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/v1/prompts/${id}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user.accessToken}',
+        },
+      );
+      print('Response: ${response.body}');
+      if (response.statusCode == 200) {
+        final index = prompts.indexWhere((p) => p.id == id);
+        if (index != -1) {
+          prompts.removeAt(index);
+        }
+        return true;
+      } else
+        return false;
+    } catch (e) {
+      print('Error deleting prompt: $e');
+      return false;
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  @action
+  Future<UserModel?> getUser() async {
+    String? userJson = await _secureStorage.read(key: 'user');
+    if (userJson == null) {
+      print('No access token found. User needs to log in.');
+      return null;
+    }
+    UserModel user = UserModel.fromJson(jsonDecode(userJson));
+    return user;
   }
 }

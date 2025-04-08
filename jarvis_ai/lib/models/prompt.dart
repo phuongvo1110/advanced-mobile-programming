@@ -1,30 +1,30 @@
 class Prompt {
   final String id;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
   final String? category;
   final String content;
   final String? description;
   final bool isPublic;
   final String? language;
   final String title;
-  final String userId;
-  final String userName;
-  final bool isFavorite;
+  final String? userId;
+  final String? userName;
+  final bool? isFavorite;
 
   Prompt({
     required this.id,
-    required this.createdAt,
-    required this.updatedAt,
+    this.createdAt,
+    this.updatedAt,
     this.category,
     required this.content,
     this.description,
     required this.isPublic,
     this.language,
     required this.title,
-    required this.userId,
-    required this.userName,
-    required this.isFavorite,
+    this.userId,
+    this.userName,
+    this.isFavorite,
   });
   factory Prompt.fromJson(Map<String, dynamic> json) {
     return Prompt(

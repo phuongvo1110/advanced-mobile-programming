@@ -21,7 +21,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _apiStore = ApiStore()..initServices();
+    _apiStore = ApiStore()..initServices(navigatorKey);
   }
 
   String getCurrentRoute() {

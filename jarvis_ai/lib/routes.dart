@@ -11,18 +11,20 @@ import 'package:jarvis_ai/pages/prompt_create._page.dart';
 import 'package:jarvis_ai/pages/prompt_managing_page.dart';
 import 'package:jarvis_ai/pages/signup_page.dart';
 import 'package:jarvis_ai/stores/api_store.dart';
-final apiStore = ApiStore()..initServices();
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final apiStore = ApiStore()..initServices(navigatorKey);
+
 class AppRoutes {
-  static Route<dynamic> generateRoute(
-    RouteSettings settings,
-  ) {
+  static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case '/':
         return MaterialPageRoute(builder: (_) => HomePage(apiStore: apiStore));
       case '/login':
         return MaterialPageRoute(builder: (_) => LoginPage(apiStore: apiStore));
       case '/signup':
-        return MaterialPageRoute(builder: (_) => SignupPage(apiStore: apiStore));
+        return MaterialPageRoute(
+          builder: (_) => SignupPage(apiStore: apiStore),
+        );
       case '/messages':
         return MaterialPageRoute(builder: (_) => const MessagesPage());
       case '/chat':
@@ -32,11 +34,17 @@ class AppRoutes {
       case '/create-bot':
         return MaterialPageRoute(builder: (_) => const AIBotCreatePageWidget());
       case '/prompts':
-        return MaterialPageRoute(builder: (_) => PromptManagingPage(apiStore: apiStore));
+        return MaterialPageRoute(
+          builder: (_) => PromptManagingPage(apiStore: apiStore),
+        );
       case '/create-prompt':
-        return MaterialPageRoute(builder: (_) => const PromptCreatingPage());
+        return MaterialPageRoute(
+          builder: (_) => PromptCreatingPage(apiStore: apiStore),
+        );
       case '/profile':
-        return MaterialPageRoute(builder: (_) => ProfilePage(apiStore: apiStore));
+        return MaterialPageRoute(
+          builder: (_) => ProfilePage(apiStore: apiStore),
+        );
       case '/premium':
         return MaterialPageRoute(
           builder: (_) => const AISubscribtionPageWidget(),

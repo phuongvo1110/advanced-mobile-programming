@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:jarvis_ai/components/card_prompt_widget.dart';
+import 'package:jarvis_ai/pages/prompt_create._page.dart';
 import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/flutter_flow_choice_chips.dart';
 import 'package:jarvis_ai/theme/flutter_flow_model.dart';
@@ -63,7 +64,7 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
   void _scrollListener() {
     if (_scrollController.position.pixels ==
         _scrollController.position.maxScrollExtent) {
-      _loadPrompts();
+      widget.apiStore.jarvisService.loadMorePrompts();
     }
   }
 
@@ -86,7 +87,6 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
       );
     }
   }
-
   @override
   void dispose() {
     _scrollController.removeListener(_scrollListener);
@@ -232,61 +232,67 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
                 ),
               ),
             ),
-            FlutterFlowChoiceChips(
-              options: [
-                ChipData('All'),
-                ChipData('Public'),
-                ChipData('Private'),
-                ChipData('Favorites'),
-              ],
-              onChanged:
-                  (val) => safeSetState(
-                    () => _model.choiceChipsValue = val?.firstOrNull,
+            Padding(
+              padding: EdgeInsetsDirectional.fromSTEB(0, 0, 0, 16.0),
+              child: FlutterFlowChoiceChips(
+                options: [
+                  ChipData('All'),
+                  ChipData('Public'),
+                  ChipData('Private'),
+                  ChipData('Favorites'),
+                ],
+                onChanged:
+                    (val) => {
+                      safeSetState(
+                        () => _model.choiceChipsValue = val?.firstOrNull,
+                      ),
+                      _loadPrompts(refresh: true),
+                    },
+                selectedChipStyle: ChipStyle(
+                  backgroundColor: JarvisTheme.of(context).secondary,
+                  textStyle: JarvisTheme.of(context).bodyMedium.override(
+                    fontFamily: 'Inter',
+                    color: JarvisTheme.of(context).info,
+                    letterSpacing: 0.0,
                   ),
-              selectedChipStyle: ChipStyle(
-                backgroundColor: JarvisTheme.of(context).secondary,
-                textStyle: JarvisTheme.of(context).bodyMedium.override(
-                  fontFamily: 'Inter',
-                  color: JarvisTheme.of(context).info,
-                  letterSpacing: 0.0,
+                  iconColor: JarvisTheme.of(context).info,
+                  iconSize: 16.0,
+                  labelPadding: EdgeInsetsDirectional.fromSTEB(
+                    15.0,
+                    5.0,
+                    15.0,
+                    5.0,
+                  ),
+                  elevation: 0.0,
+                  borderRadius: BorderRadius.circular(8.0),
                 ),
-                iconColor: JarvisTheme.of(context).info,
-                iconSize: 16.0,
-                labelPadding: EdgeInsetsDirectional.fromSTEB(
-                  15.0,
-                  5.0,
-                  15.0,
-                  5.0,
+                unselectedChipStyle: ChipStyle(
+                  backgroundColor: JarvisTheme.of(context).secondaryBackground,
+                  textStyle: JarvisTheme.of(context).bodyMedium.override(
+                    fontFamily: 'Inter',
+                    color: JarvisTheme.of(context).secondaryText,
+                    letterSpacing: 0.0,
+                  ),
+                  iconColor: JarvisTheme.of(context).secondaryText,
+                  iconSize: 16.0,
+                  labelPadding: EdgeInsetsDirectional.fromSTEB(
+                    15.0,
+                    5.0,
+                    15.0,
+                    5.0,
+                  ),
+                  elevation: 0.0,
+                  borderRadius: BorderRadius.circular(8.0),
                 ),
-                elevation: 0.0,
-                borderRadius: BorderRadius.circular(8.0),
+                chipSpacing: 18.0,
+                rowSpacing: 8.0,
+                multiselect: false,
+                alignment: WrapAlignment.center,
+                controller:
+                    _model.choiceChipsValueController ??=
+                        FormFieldController<List<String>>([]),
+                wrapped: true,
               ),
-              unselectedChipStyle: ChipStyle(
-                backgroundColor: JarvisTheme.of(context).secondaryBackground,
-                textStyle: JarvisTheme.of(context).bodyMedium.override(
-                  fontFamily: 'Inter',
-                  color: JarvisTheme.of(context).secondaryText,
-                  letterSpacing: 0.0,
-                ),
-                iconColor: JarvisTheme.of(context).secondaryText,
-                iconSize: 16.0,
-                labelPadding: EdgeInsetsDirectional.fromSTEB(
-                  15.0,
-                  5.0,
-                  15.0,
-                  5.0,
-                ),
-                elevation: 0.0,
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              chipSpacing: 18.0,
-              rowSpacing: 8.0,
-              multiselect: false,
-              alignment: WrapAlignment.center,
-              controller:
-                  _model.choiceChipsValueController ??=
-                      FormFieldController<List<String>>([]),
-              wrapped: true,
             ),
             Expanded(
               child: Observer(
@@ -320,6 +326,20 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
                           prompt: prompt,
                           onFavoriteChanged: (isFavorite) {
                             // Handle favorite toggle
+                          },
+                          jarvisService: widget.apiStore.jarvisService,
+                          onEditPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) {
+                                  return PromptCreatingPage(
+                                    apiStore: widget.apiStore,
+                                    existingPrompt: prompt,
+                                  );
+                                },
+                              ),
+                            );
                           },
                         );
                       },

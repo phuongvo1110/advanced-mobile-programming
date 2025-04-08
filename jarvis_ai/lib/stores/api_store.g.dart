@@ -13,11 +13,11 @@ mixin _$ApiStore on _ApiStore, Store {
       ActionController(name: '_ApiStore', context: context);
 
   @override
-  void initServices() {
+  void initServices(GlobalKey<NavigatorState> navigatorKey) {
     final _$actionInfo =
         _$_ApiStoreActionController.startAction(name: '_ApiStore.initServices');
     try {
-      return super.initServices();
+      return super.initServices(navigatorKey);
     } finally {
       _$_ApiStoreActionController.endAction(_$actionInfo);
     }
