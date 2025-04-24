@@ -1,7 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:jarvis_ai/models/conversation.dart';
+import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
+import 'package:mobx/mobx.dart';
+
+class IdOption {
+  final Id value;
+  final String label;
+  const IdOption({required this.value, required this.label});
+}
+
+const List<IdOption> idOptions = [
+  IdOption(value: Id.CLAUDE_3_HAIKU_20240307, label: 'Claude 3 Haiku'),
+  IdOption(value: Id.CLAUDE_3_SONNET_20240229, label: 'Claude 3 Sonnet'),
+  IdOption(value: Id.GEMINI_15_FLASH_LATEST, label: 'Gemini 1.5 Flash'),
+  IdOption(value: Id.GEMINI_15_PRO_LATEST, label: 'Gemini 1.5 Pro'),
+  IdOption(value: Id.GPT_4_O, label: 'GPT-4o'),
+  IdOption(value: Id.GPT_4_O_MINI, label: 'GPT-4o Mini'),
+];
 
 class AIChatMessageModel {
   ///  State fields for stateful widgets in this page.
@@ -17,13 +36,28 @@ class AIChatMessageModel {
 }
 
 class AIMessagePage extends StatefulWidget {
-  const AIMessagePage({super.key});
+  const AIMessagePage({super.key, required this.apiStore});
+  final ApiStore apiStore;
   @override
   State<AIMessagePage> createState() => _AIMessagePageWidgetState();
 }
 
 class _AIMessagePageWidgetState extends State<AIMessagePage> {
   late AIChatMessageModel _model;
+  final ScrollController _scrollController = ScrollController();
+  List<Map<String, dynamic>> conversationHistory = [];
+  ObservableList<Message> messages = ObservableList<Message>();
+  bool isLoading = false;
+  IdOption selectedBot = idOptions.firstWhere(
+    (option) => option.value == Id.GPT_4_O_MINI,
+  );
+
+  // Assistant details - these could also be passed as parameters
+  Assistant get currentAssistant => Assistant(
+    id: selectedBot.value,
+    model: Model.DIFY,
+    name: selectedBot.label,
+  );
   @override
   void initState() {
     super.initState();
@@ -31,6 +65,64 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
 
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _model.textController?.text.trim();
+    if (text == null || text.isEmpty) return;
+    setState(() {
+      isLoading = true;
+      messages.add(
+        Message(assistant: currentAssistant, content: text, role: 'user'),
+      );
+      _model.textController?.clear();
+    });
+
+    _scrollToBottom();
+    try {
+      final response = await widget.apiStore.jarvisService.sendMessage(
+        content: text,
+        assistant: currentAssistant,
+        conversationHistory: conversationHistory,
+      );
+      setState(() {
+        final modelResponse = Message(
+          assistant: currentAssistant,
+          content: response ?? '',
+          role: 'model',
+        );
+        messages.add(modelResponse);
+        conversationHistory.addAll([
+          messages[messages.length - 2].toJson(),
+          modelResponse.toJson(),
+        ]);
+      });
+    } catch (e) {
+      setState(() {
+        messages.add(
+          Message(
+            assistant: currentAssistant,
+            content: 'Sorry, I encountered an error. Please try again.',
+            role: 'model',
+          ),
+        );
+      });
+    } finally {
+      setState(() => isLoading = false);
+      _scrollToBottom();
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
@@ -77,21 +169,59 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
           ),
         ),
         actions: [
-          Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 12.0, 0.0),
-            child: JarvisIconButton(
-              borderColor: Colors.transparent,
-              borderRadius: 30.0,
-              borderWidth: 1.0,
-              buttonSize: 60.0,
-              icon: FaIcon(
-                FontAwesomeIcons.solidCircleUser,
-                color: JarvisTheme.of(context).primaryText,
-                size: 30.0,
-              ),
-              onPressed: () async {},
+          DropdownButton(
+            value: selectedBot,
+            icon: Icon(
+              Icons.arrow_drop_down,
+              color: JarvisTheme.of(context).info,
             ),
+            iconSize: 24,
+            elevation: 16,
+            style: TextStyle(
+              color: JarvisTheme.of(context).primaryText,
+              fontWeight: FontWeight.w900,
+            ),
+            underline: Container(height: 0),
+            dropdownColor: JarvisTheme.of(context).secondaryBackground,
+            items:
+                idOptions.map<DropdownMenuItem<IdOption>>((IdOption option) {
+                  return DropdownMenuItem<IdOption>(
+                    value: option,
+                    child: Text(
+                      option.label,
+                      style: JarvisTheme.of(context).bodyMedium.override(
+                        fontFamily: 'Inter',
+                        color: JarvisTheme.of(context).primaryText,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  );
+                }).toList(),
+            onChanged: (IdOption? newValue) {
+              if (newValue != null) {
+                setState(() {
+                  selectedBot = newValue;
+                  messages.clear();
+                  conversationHistory.clear();
+                });
+              }
+            },
           ),
+          // Padding(
+          //   padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 12.0, 0.0),
+          //   child: JarvisIconButton(
+          //     borderColor: Colors.transparent,
+          //     borderRadius: 30.0,
+          //     borderWidth: 1.0,
+          //     buttonSize: 60.0,
+          //     icon: FaIcon(
+          //       FontAwesomeIcons.solidCircleUser,
+          //       color: JarvisTheme.of(context).primaryText,
+          //       size: 30.0,
+          //     ),
+          //     onPressed: () async {},
+          //   ),
+          // ),
         ],
         centerTitle: false,
         elevation: 0.0,
@@ -103,81 +233,18 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
             child: Stack(
               children: [
                 Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(0.0, 16.0, 0.0, 80.0),
-                  child: ListView(
-                    padding: EdgeInsets.fromLTRB(0, 16.0, 0, 16.0),
-                    scrollDirection: Axis.vertical,
-                    children: [
-                      Align(
-                        alignment: AlignmentDirectional(-1.0, 0.0),
-                        child: Container(
-                          width: MediaQuery.sizeOf(context).width * 0.75,
-                          decoration: BoxDecoration(
-                            color: JarvisTheme.of(context).secondaryBackground,
-                            borderRadius: BorderRadius.circular(16.0),
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Text(
-                              'Hello! How can I assist you today?',
-                              style: JarvisTheme.of(
-                                context,
-                              ).bodyMedium.override(
-                                fontFamily: 'Inter',
-                                letterSpacing: 0.0,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 16.0),
-                      Align(
-                        alignment: AlignmentDirectional(1.0, 0.0),
-                        child: Container(
-                          width: MediaQuery.sizeOf(context).width * 0.75,
-                          decoration: BoxDecoration(
-                            color: JarvisTheme.of(context).secondary,
-                            borderRadius: BorderRadius.circular(16.0),
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Text(
-                              'Can you help me find information about climate change?',
-                              style: JarvisTheme.of(
-                                context,
-                              ).bodyMedium.override(
-                                fontFamily: 'Inter',
-                                color: JarvisTheme.of(context).info,
-                                letterSpacing: 0.0,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 16.0),
-                      Align(
-                        alignment: AlignmentDirectional(-1.0, 0.0),
-                        child: Container(
-                          width: MediaQuery.sizeOf(context).width * 0.75,
-                          decoration: BoxDecoration(
-                            color: JarvisTheme.of(context).secondaryBackground,
-                            borderRadius: BorderRadius.circular(16.0),
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Text(
-                              'Of course! Climate change refers to long-term shifts in temperatures and weather patterns. These shifts may be natural, but since the 1800s, human activities have been the main driver of climate change, primarily due to the burning of fossil fuels like coal, oil, and gas, which produces heat-trapping gases. Would you like to know more about its causes, effects, or potential solutions?',
-                              style: JarvisTheme.of(
-                                context,
-                              ).bodyMedium.override(
-                                fontFamily: 'Inter',
-                                letterSpacing: 0.0,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  padding: EdgeInsetsDirectional.fromSTEB(0.0, 25.0, 0.0, 80.0),
+                  child: Observer(
+                    builder: (context) {
+                      return ListView.builder(
+                        controller: _scrollController,
+                        itemCount: messages.length,
+                        itemBuilder: (context, index) {
+                          final message = messages[index];
+                          return _buildMessageBubble(message);
+                        },
+                      );
+                    },
                   ),
                 ),
                 Align(
@@ -293,9 +360,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                               color: JarvisTheme.of(context).info,
                               size: 24.0,
                             ),
-                            onPressed: () {
-                              print('IconButton pressed ...');
-                            },
+                            onPressed: _sendMessage,
                           ),
                         ],
                       ),
@@ -306,6 +371,54 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(Message message) {
+    final isUser = message.role == 'user';
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      child: Align(
+        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.75,
+          ),
+          decoration: BoxDecoration(
+            color:
+                isUser
+                    ? JarvisTheme.of(context).secondary
+                    : JarvisTheme.of(context).secondaryBackground,
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!isUser)
+                  Text(
+                    message.assistant.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: JarvisTheme.of(context).primaryText,
+                    ),
+                  ),
+                SizedBox(height: 4),
+                Text(
+                  message.content,
+                  style: JarvisTheme.of(context).bodyMedium.copyWith(
+                    color:
+                        isUser
+                            ? JarvisTheme.of(context).info
+                            : JarvisTheme.of(context).primaryText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

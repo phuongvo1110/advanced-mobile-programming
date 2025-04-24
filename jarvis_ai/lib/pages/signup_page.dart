@@ -332,7 +332,7 @@ class _SignupPageWidgetState extends State<SignupPage> {
                               0,
                               16,
                             ),
-                            child: Container(
+                          child: Container(
                               width: double.infinity,
                               child: TextFormField(
                                 controller: _model.passwordTextController,

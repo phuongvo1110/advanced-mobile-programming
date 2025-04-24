@@ -11,32 +11,40 @@ import 'package:jarvis_ai/pages/prompt_create._page.dart';
 import 'package:jarvis_ai/pages/prompt_managing_page.dart';
 import 'package:jarvis_ai/pages/signup_page.dart';
 import 'package:jarvis_ai/stores/api_store.dart';
-final apiStore = ApiStore()..initServices();
+import 'package:provider/provider.dart';
+
+
 class AppRoutes {
-  static Route<dynamic> generateRoute(
-    RouteSettings settings,
-  ) {
+  static Route<dynamic> generateRoute(RouteSettings settings, ApiStore apiStore) {
     switch (settings.name) {
       case '/':
         return MaterialPageRoute(builder: (_) => HomePage(apiStore: apiStore));
       case '/login':
         return MaterialPageRoute(builder: (_) => LoginPage(apiStore: apiStore));
       case '/signup':
-        return MaterialPageRoute(builder: (_) => SignupPage(apiStore: apiStore));
+        return MaterialPageRoute(
+          builder: (_) => SignupPage(apiStore: apiStore),
+        );
       case '/messages':
-        return MaterialPageRoute(builder: (_) => const MessagesPage());
+        return MaterialPageRoute(builder: (_) =>  MessagesPage(apiStore: apiStore));
       case '/chat':
-        return MaterialPageRoute(builder: (_) => const AIMessagePage());
+        return MaterialPageRoute(builder: (_) =>  AIMessagePage(apiStore: apiStore));
       case '/bots':
         return MaterialPageRoute(builder: (_) => const AiBotsManagingPage());
       case '/create-bot':
         return MaterialPageRoute(builder: (_) => const AIBotCreatePageWidget());
       case '/prompts':
-        return MaterialPageRoute(builder: (_) => const PromptManagingPage());
+        return MaterialPageRoute(
+          builder: (_) => PromptManagingPage(apiStore: apiStore),
+        );
       case '/create-prompt':
-        return MaterialPageRoute(builder: (_) => const PromptCreatingPage());
+        return MaterialPageRoute(
+          builder: (_) => PromptCreatingPage(apiStore: apiStore),
+        );
       case '/profile':
-        return MaterialPageRoute(builder: (_) => ProfilePage(apiStore: apiStore));
+        return MaterialPageRoute(
+          builder: (_) => ProfilePage(apiStore: apiStore),
+        );
       case '/premium':
         return MaterialPageRoute(
           builder: (_) => const AISubscribtionPageWidget(),

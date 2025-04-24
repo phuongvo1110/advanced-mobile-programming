@@ -21,7 +21,8 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _apiStore = ApiStore()..initServices();
+    _apiStore = ApiStore();
+    _apiStore.initServices(navigatorKey);
   }
 
   String getCurrentRoute() {
@@ -42,7 +43,7 @@ class _MyAppState extends State<MyApp> {
         title: 'Jarvis AI',
         navigatorKey: navigatorKey,
         initialRoute: '/login',
-        onGenerateRoute: AppRoutes.generateRoute,
+        onGenerateRoute: (settings) => AppRoutes.generateRoute(settings, _apiStore),
         builder: (context, child) {
           return Observer(
             builder: (context) {

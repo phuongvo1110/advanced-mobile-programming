@@ -512,6 +512,7 @@ class _ProfilePageWidgetState extends State<ProfilePage>
                 child: FFButtonWidget(
                   onPressed: () async {
                     await widget.apiStore.authService.logout();
+                    widget.apiStore.jarvisService.member = null;
                     Navigator.pushNamed(context, '/login');
                   },
                   text: 'Log Out',

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:jarvis_ai/components/card_prompt_widget.dart';
+import 'package:jarvis_ai/pages/prompt_create._page.dart';
+import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/flutter_flow_choice_chips.dart';
 import 'package:jarvis_ai/theme/flutter_flow_model.dart';
 import 'package:jarvis_ai/theme/flutter_flow_theme.dart';
@@ -27,6 +30,7 @@ class PromptManagingModel extends FlutterFlowModel<PromptManagingPage> {
   @override
   void initState(BuildContext context) {
     cardPromtModel = CardPromtModel();
+    choiceChipsValueController = FormFieldController<List<String>>(['All']);
   }
 
   @override
@@ -39,24 +43,58 @@ class PromptManagingModel extends FlutterFlowModel<PromptManagingPage> {
 }
 
 class PromptManagingPage extends StatefulWidget {
-  const PromptManagingPage({super.key});
+  const PromptManagingPage({super.key, required this.apiStore});
+  final ApiStore apiStore;
   @override
   State<PromptManagingPage> createState() => _PromptManagingWidgetState();
 }
 
 class _PromptManagingWidgetState extends State<PromptManagingPage> {
   late PromptManagingModel _model;
+  final ScrollController _scrollController = ScrollController();
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => PromptManagingModel());
-
+    _scrollController.addListener(_scrollListener);
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
+    _loadPrompts(refresh: true);
+  }
+
+  void _scrollListener() {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
+      print('fwefnweoifwnfoiwenfow');
+      widget.apiStore.jarvisService.loadMorePrompts();
+    }
+  }
+
+  Future<void> _loadPrompts({bool refresh = false}) async {
+    try {
+      await widget.apiStore.jarvisService.getPrompts(
+        refresh: refresh,
+        search: _model.textController.text,
+        isPublic:
+            _model.choiceChipsValue == 'Public'
+                ? true
+                : _model.choiceChipsValue == 'Private'
+                ? false
+                : null,
+        isFavorite: _model.choiceChipsValue == 'Favorites' ? true : null,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load prompts: ${e.toString()}')),
+      );
+    }
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_scrollListener);
+    // _model.textController.removeListener(_onSearchChanged);
+    _scrollController.dispose();
     _model.dispose();
 
     super.dispose();
@@ -143,6 +181,9 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
                   focusNode: _model.textFieldFocusNode,
                   autofocus: false,
                   obscureText: false,
+                  onChanged: (value) {
+                    _loadPrompts(refresh: true);
+                  },
                   decoration: InputDecoration(
                     hintText: 'Search assistants...',
                     hintStyle: JarvisTheme.of(context).labelMedium.override(
@@ -194,75 +235,128 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
                 ),
               ),
             ),
-            FlutterFlowChoiceChips(
-              options: [
-                ChipData('All'),
-                ChipData('Public'),
-                ChipData('Private'),
-                ChipData('Favorites'),
-              ],
-              onChanged:
-                  (val) => safeSetState(
-                    () => _model.choiceChipsValue = val?.firstOrNull,
-                  ),
-              selectedChipStyle: ChipStyle(
-                backgroundColor: JarvisTheme.of(context).secondary,
-                textStyle: JarvisTheme.of(context).bodyMedium.override(
-                  fontFamily: 'Inter',
-                  color: JarvisTheme.of(context).info,
-                  letterSpacing: 0.0,
-                ),
-                iconColor: JarvisTheme.of(context).info,
-                iconSize: 16.0,
-                labelPadding: EdgeInsetsDirectional.fromSTEB(
-                  15.0,
-                  5.0,
-                  15.0,
-                  5.0,
-                ),
-                elevation: 0.0,
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              unselectedChipStyle: ChipStyle(
-                backgroundColor: JarvisTheme.of(context).secondaryBackground,
-                textStyle: JarvisTheme.of(context).bodyMedium.override(
-                  fontFamily: 'Inter',
-                  color: JarvisTheme.of(context).secondaryText,
-                  letterSpacing: 0.0,
-                ),
-                iconColor: JarvisTheme.of(context).secondaryText,
-                iconSize: 16.0,
-                labelPadding: EdgeInsetsDirectional.fromSTEB(
-                  15.0,
-                  5.0,
-                  15.0,
-                  5.0,
-                ),
-                elevation: 0.0,
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              chipSpacing: 18.0,
-              rowSpacing: 8.0,
-              multiselect: false,
-              alignment: WrapAlignment.center,
-              controller:
-                  _model.choiceChipsValueController ??=
-                      FormFieldController<List<String>>([]),
-              wrapped: true,
-            ),
             Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 0.0, 10.0),
-              child: ListView(
-                padding: EdgeInsets.zero,
-                shrinkWrap: true,
-                scrollDirection: Axis.vertical,
-                children: [
-                  wrapWithModel(
-                    model: _model.cardPromtModel,
-                    updateCallback: () => safeSetState(() {}),
-                    child: CardPromtWidget(),
-                  ),
+              padding: EdgeInsetsDirectional.fromSTEB(0, 0, 0, 16.0),
+              child: FlutterFlowChoiceChips(
+                options: [
+                  ChipData('All'),
+                  ChipData('Public'),
+                  ChipData('Private'),
+                  ChipData('Favorites'),
                 ],
+                onChanged:
+                    (val) => {
+                      safeSetState(
+                        () => _model.choiceChipsValue = val?.firstOrNull,
+                      ),
+                      _loadPrompts(refresh: true),
+                    },
+                selectedChipStyle: ChipStyle(
+                  backgroundColor: JarvisTheme.of(context).secondary,
+                  textStyle: JarvisTheme.of(context).bodyMedium.override(
+                    fontFamily: 'Inter',
+                    color: JarvisTheme.of(context).info,
+                    letterSpacing: 0.0,
+                  ),
+                  iconColor: JarvisTheme.of(context).info,
+                  iconSize: 16.0,
+                  labelPadding: EdgeInsetsDirectional.fromSTEB(
+                    15.0,
+                    5.0,
+                    15.0,
+                    5.0,
+                  ),
+                  elevation: 0.0,
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                unselectedChipStyle: ChipStyle(
+                  backgroundColor: JarvisTheme.of(context).secondaryBackground,
+                  textStyle: JarvisTheme.of(context).bodyMedium.override(
+                    fontFamily: 'Inter',
+                    color: JarvisTheme.of(context).secondaryText,
+                    letterSpacing: 0.0,
+                  ),
+                  iconColor: JarvisTheme.of(context).secondaryText,
+                  iconSize: 16.0,
+                  labelPadding: EdgeInsetsDirectional.fromSTEB(
+                    15.0,
+                    5.0,
+                    15.0,
+                    5.0,
+                  ),
+                  elevation: 0.0,
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                chipSpacing: 18.0,
+                rowSpacing: 8.0,
+                multiselect: false,
+                alignment: WrapAlignment.center,
+                controller:
+                    _model.choiceChipsValueController ??=
+                        FormFieldController<List<String>>([]),
+                wrapped: true,
+              ),
+            ),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => _loadPrompts(refresh: true),
+                child: Observer(
+                  builder: (context) {
+                    final prompts =
+                        widget.apiStore.jarvisService.prompts.toList();
+                    if (widget.apiStore.jarvisService.isLoading) {
+                      return Center(child: CircularProgressIndicator());
+                    }
+                    if (prompts.isEmpty &&
+                        !widget.apiStore.jarvisService.isLoading) {
+                      return Center(
+                        child: Text(
+                          'No prompts available',
+                          style: JarvisTheme.of(context).bodyMedium,
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      controller: _scrollController,
+                      itemCount:
+                          widget.apiStore.jarvisService.prompts.length +
+                          (widget.apiStore.jarvisService.hasMorePrompts
+                              ? 1
+                              : 0),
+                      itemBuilder: (context, index) {
+                        if (index >=
+                            widget.apiStore.jarvisService.prompts.length) {
+                          return widget.apiStore.jarvisService.isLoading
+                              ? Center(child: CircularProgressIndicator())
+                              : SizedBox.shrink();
+                        }
+
+                        final prompt =
+                            widget.apiStore.jarvisService.prompts[index];
+                        return CardPromtWidget(
+                          prompt: prompt,
+                          onFavoriteChanged: (isFavorite) {
+                            // Handle favorite toggle
+                          },
+                          jarvisService: widget.apiStore.jarvisService,
+                          onEditPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) {
+                                  return PromptCreatingPage(
+                                    apiStore: widget.apiStore,
+                                    existingPrompt: prompt,
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
             Align(

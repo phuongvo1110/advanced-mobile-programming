@@ -34,6 +34,13 @@ abstract class _AuthService with Store {
       final response = await _apiService.post(
         '/api/v1/auth/password/sign-in',
         body: {'email': email, 'password': password},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Stack-Access-Type': 'client',
+          'X-Stack-Publishable-Client-Key':
+              'pck_tqsy29b64a585km2g4wnpc57ypjprzzdch8xzpq0xhayr',
+          'X-Stack-Project-Id': 'a914f06b-5e46-4966-8693-80e4b9f4f409',
+        },
       );
       print('$response');
       currentUser = UserModel.fromJson(response);
@@ -75,6 +82,16 @@ abstract class _AuthService with Store {
     }
   }
 
+  Future<UserModel?> getUser() async {
+    String? userJson = await _secureStorage.read(key: 'user');
+    if (userJson == null) {
+      print('No access token found. User needs to log in.');
+      return null;
+    }
+    UserModel user = UserModel.fromJson(jsonDecode(userJson));
+    return user;
+  }
+
   void _startAutoRefresh() {
     if (tokenExpiryTime != null) {
       final duration =
@@ -99,9 +116,19 @@ abstract class _AuthService with Store {
           'verification_callback_url':
               'https://auth.dev.jarvis.cx/handler/email-verification?after_auth_return_to=%2Fauth%2Fsignin%3Fclient_id%3Djarvis_chat%26redirect%3Dhttps%253A%252F%252Fchat.dev.jarvis.cx%252Fauth%252Foauth%252Fsuccess',
         },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Stack-Access-Type': 'client',
+          'X-Stack-Publishable-Client-Key':
+              'pck_tqsy29b64a585km2g4wnpc57ypjprzzdch8xzpq0xhayr',
+          'X-Stack-Project-Id': 'a914f06b-5e46-4966-8693-80e4b9f4f409',
+        },
       );
       print('Signup response: $response');
       currentUser = UserModel.fromJson(response);
+      accessToken = currentUser?.accessToken;
+      tokenExpiryTime = DateTime.now().add(Duration(hours: 1));
+      await _saveUserData();
       return true;
     } on ApiException catch (e) {
       // Don't wrap the exception again, just rethrow
@@ -119,7 +146,20 @@ abstract class _AuthService with Store {
   Future<void> logout() async {
     isLoading = false;
     try {
-      await _apiService.delete('/api/v1/auth/sessions/current', body: {});
+      final user = await getUser();
+      await _apiService.delete(
+        '/api/v1/auth/sessions/current',
+        body: {},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Stack-Access-Type': 'client',
+          'X-Stack-Publishable-Client-Key':
+              'pck_tqsy29b64a585km2g4wnpc57ypjprzzdch8xzpq0xhayr',
+          'X-Stack-Project-Id': 'a914f06b-5e46-4966-8693-80e4b9f4f409',
+          if (user != null) 'X-Stack-Refresh-Token': '${user.refreshToken}',
+          if (user != null) 'Authorization': 'Bearer ${user.accessToken}',
+        },
+      );
       await _secureStorage.delete(key: 'user');
       currentUser = null;
       accessToken = null;
@@ -144,7 +184,14 @@ abstract class _AuthService with Store {
       final response = await _apiService.post(
         '/api/v1/auth/sessions/current/refresh',
         body: {},
-        headers: {'X-Stack-Refresh-Token': currentUser!.refreshToken},
+        headers: {
+          'X-Stack-Refresh-Token': currentUser!.refreshToken,
+          'Content-Type': 'application/json',
+          'X-Stack-Access-Type': 'client',
+          'X-Stack-Publishable-Client-Key':
+              'pck_tqsy29b64a585km2g4wnpc57ypjprzzdch8xzpq0xhayr',
+          'X-Stack-Project-Id': 'a914f06b-5e46-4966-8693-80e4b9f4f409',
+        },
       );
       print('Refresh Token response: $response');
       if (response.containsKey('access_token')) {
