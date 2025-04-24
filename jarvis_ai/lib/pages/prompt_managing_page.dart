@@ -30,6 +30,7 @@ class PromptManagingModel extends FlutterFlowModel<PromptManagingPage> {
   @override
   void initState(BuildContext context) {
     cardPromtModel = CardPromtModel();
+    choiceChipsValueController = FormFieldController<List<String>>(['All']);
   }
 
   @override
@@ -64,6 +65,7 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
   void _scrollListener() {
     if (_scrollController.position.pixels ==
         _scrollController.position.maxScrollExtent) {
+      print('fwefnweoifwnfoiwenfow');
       widget.apiStore.jarvisService.loadMorePrompts();
     }
   }
@@ -87,6 +89,7 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
       );
     }
   }
+
   @override
   void dispose() {
     _scrollController.removeListener(_scrollListener);
@@ -295,17 +298,25 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
               ),
             ),
             Expanded(
-              child: Observer(
-                builder: (context) {
-                  if (widget.apiStore.jarvisService.isLoading &&
-                      widget.apiStore.jarvisService.prompts.isEmpty) {
-                    return Center(child: CircularProgressIndicator());
-                  }
-
-                  return RefreshIndicator(
-                    onRefresh:
-                        () => widget.apiStore.jarvisService.refreshPrompts(),
-                    child: ListView.builder(
+              child: RefreshIndicator(
+                onRefresh: () => _loadPrompts(refresh: true),
+                child: Observer(
+                  builder: (context) {
+                    final prompts =
+                        widget.apiStore.jarvisService.prompts.toList();
+                    if (widget.apiStore.jarvisService.isLoading) {
+                      return Center(child: CircularProgressIndicator());
+                    }
+                    if (prompts.isEmpty &&
+                        !widget.apiStore.jarvisService.isLoading) {
+                      return Center(
+                        child: Text(
+                          'No prompts available',
+                          style: JarvisTheme.of(context).bodyMedium,
+                        ),
+                      );
+                    }
+                    return ListView.builder(
                       controller: _scrollController,
                       itemCount:
                           widget.apiStore.jarvisService.prompts.length +
@@ -343,9 +354,9 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
                           },
                         );
                       },
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
             Align(

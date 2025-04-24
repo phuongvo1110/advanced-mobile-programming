@@ -57,6 +57,22 @@ mixin _$JarvisService on _JarvisService, Store {
     });
   }
 
+  late final _$conversationsAtom =
+      Atom(name: '_JarvisService.conversations', context: context);
+
+  @override
+  ObservableList<Conversation> get conversations {
+    _$conversationsAtom.reportRead();
+    return super.conversations;
+  }
+
+  @override
+  set conversations(ObservableList<Conversation> value) {
+    _$conversationsAtom.reportWrite(value, super.conversations, () {
+      super.conversations = value;
+    });
+  }
+
   late final _$currentPageAtom =
       Atom(name: '_JarvisService.currentPage', context: context);
 
@@ -135,22 +151,6 @@ mixin _$JarvisService on _JarvisService, Store {
         refresh: refresh));
   }
 
-  late final _$loadMorePromptsAsyncAction =
-      AsyncAction('_JarvisService.loadMorePrompts', context: context);
-
-  @override
-  Future<void> loadMorePrompts() {
-    return _$loadMorePromptsAsyncAction.run(() => super.loadMorePrompts());
-  }
-
-  late final _$refreshPromptsAsyncAction =
-      AsyncAction('_JarvisService.refreshPrompts', context: context);
-
-  @override
-  Future<void> refreshPrompts() {
-    return _$refreshPromptsAsyncAction.run(() => super.refreshPrompts());
-  }
-
   late final _$toggleFavoriteAsyncAction =
       AsyncAction('_JarvisService.toggleFavorite', context: context);
 
@@ -183,9 +183,20 @@ mixin _$JarvisService on _JarvisService, Store {
       AsyncAction('_JarvisService.updatePrompt', context: context);
 
   @override
-  Future<Prompt?> updatePrompt(Prompt updatePrompt) {
-    return _$updatePromptAsyncAction
-        .run(() => super.updatePrompt(updatePrompt));
+  Future<Prompt?> updatePrompt(
+      {required String id,
+      required String title,
+      required String content,
+      String? description,
+      required bool isPublic,
+      String? category}) {
+    return _$updatePromptAsyncAction.run(() => super.updatePrompt(
+        id: id,
+        title: title,
+        content: content,
+        description: description,
+        isPublic: isPublic,
+        category: category));
   }
 
   late final _$deletePromptAsyncAction =
@@ -194,6 +205,56 @@ mixin _$JarvisService on _JarvisService, Store {
   @override
   Future<bool> deletePrompt(String id) {
     return _$deletePromptAsyncAction.run(() => super.deletePrompt(id));
+  }
+
+  late final _$loadMorePromptsAsyncAction =
+      AsyncAction('_JarvisService.loadMorePrompts', context: context);
+
+  @override
+  Future<void> loadMorePrompts() {
+    return _$loadMorePromptsAsyncAction.run(() => super.loadMorePrompts());
+  }
+
+  late final _$refreshPromptsAsyncAction =
+      AsyncAction('_JarvisService.refreshPrompts', context: context);
+
+  @override
+  Future<void> refreshPrompts() {
+    return _$refreshPromptsAsyncAction.run(() => super.refreshPrompts());
+  }
+
+  late final _$getConversationsAsyncAction =
+      AsyncAction('_JarvisService.getConversations', context: context);
+
+  @override
+  Future<void> getConversations(
+      {String? cursor,
+      int? limit,
+      String assistanId = 'gpt-4o-mini',
+      String assistantModel = 'dify',
+      bool refresh = false}) {
+    return _$getConversationsAsyncAction.run(() => super.getConversations(
+        cursor: cursor,
+        limit: limit,
+        assistanId: assistanId,
+        assistantModel: assistantModel,
+        refresh: refresh));
+  }
+
+  late final _$sendMessageAsyncAction =
+      AsyncAction('_JarvisService.sendMessage', context: context);
+
+  @override
+  Future<String?> sendMessage(
+      {required String content,
+      required Assistant assistant,
+      List<String> files = const [],
+      List<Map<String, dynamic>> conversationHistory = const []}) {
+    return _$sendMessageAsyncAction.run(() => super.sendMessage(
+        content: content,
+        assistant: assistant,
+        files: files,
+        conversationHistory: conversationHistory));
   }
 
   late final _$getUserAsyncAction =
@@ -210,6 +271,7 @@ mixin _$JarvisService on _JarvisService, Store {
 isLoading: ${isLoading},
 member: ${member},
 prompts: ${prompts},
+conversations: ${conversations},
 currentPage: ${currentPage},
 hasMorePrompts: ${hasMorePrompts},
 promptSearchQuery: ${promptSearchQuery}

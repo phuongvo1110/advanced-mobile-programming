@@ -1,15 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:jarvis_ai/models/conversation.dart';
+import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
 
 class MessagesPage extends StatefulWidget {
-  const MessagesPage({super.key});
+  const MessagesPage({super.key, required this.apiStore});
+  final ApiStore apiStore;
   @override
   State<MessagesPage> createState() => _MessagesPageWidgetState();
 }
 
 class _MessagesPageWidgetState extends State<MessagesPage> {
+  final ScrollController _scrollController = ScrollController();
+  @override
+  void initState() {
+    super.initState();
+    _loadConversations();
+  }
+
+  Future<void> _loadConversations({bool refresh = false}) async {
+    try {
+      await widget.apiStore.jarvisService.getConversations(refresh: refresh);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load conversations: ${e.toString()}'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -83,553 +106,230 @@ class _MessagesPageWidgetState extends State<MessagesPage> {
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(0, 8, 0, 0),
-              child: Column(
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  Padding(
-                    padding: EdgeInsetsDirectional.fromSTEB(0, 1, 0, 0),
-                    child: Material(
-                      color: Colors.transparent,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(0),
-                      ),
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: JarvisTheme.of(context).secondaryBackground,
-                          borderRadius: BorderRadius.circular(0),
+            Expanded(
+              child: RefreshIndicator(
+                child: Observer(
+                  builder: (context) {
+                    final conversations =
+                        widget.apiStore.jarvisService.conversations.toList();
+                    final isLoading = widget.apiStore.jarvisService.isLoading;
+                    if (isLoading && conversations.isEmpty) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (conversations.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'No conversations yet',
+                          style: JarvisTheme.of(context).bodyMedium,
                         ),
-                        child: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: JarvisTheme.of(context).accent1,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: JarvisTheme.of(context).primary,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: Padding(
-                                  padding: EdgeInsets.all(2),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(40),
-                                    child: Image.network(
-                                      'https://source.unsplash.com/random/1280x720?user&2',
-                                      width: 44,
-                                      height: 44,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                    8,
-                                    0,
-                                    0,
-                                    0,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.max,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Randy Mcdonald',
-                                        textAlign: TextAlign.start,
-                                        style: JarvisTheme.of(
-                                          context,
-                                        ).bodyLarge.copyWith(
-                                          fontFamily: 'Inter',
-                                          letterSpacing: 0.0,
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
-                                          0,
-                                          4,
-                                          0,
-                                          0,
-                                        ),
-                                        child: Text(
-                                          'This was really great, i\'m so glad that we could  catchup this weekend.',
-                                          textAlign: TextAlign.start,
-                                          style: JarvisTheme.of(
-                                            context,
-                                          ).labelMedium.copyWith(
-                                            fontFamily: 'Inter',
-                                            letterSpacing: 0.0,
-                                          ),
-                                        ),
-                                      ),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.max,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Padding(
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                  0,
-                                                  4,
-                                                  0,
-                                                  0,
-                                                ),
-                                            child: Text(
-                                              'Mon. July 3rd - 4:12pm',
-                                              textAlign: TextAlign.start,
-                                              style: JarvisTheme.of(
-                                                context,
-                                              ).labelSmall.copyWith(
-                                                fontFamily: 'Inter',
-                                                letterSpacing: 0.0,
-                                              ),
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.chevron_right_rounded,
-                                            color:
-                                                JarvisTheme.of(
-                                                  context,
-                                                ).secondaryText,
-                                            size: 24,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: JarvisTheme.of(context).alternate,
-                  ),
-                  Padding(
-                    padding: EdgeInsetsDirectional.fromSTEB(0, 1, 0, 0),
-                    child: Material(
-                      color: Colors.transparent,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(0),
-                      ),
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: JarvisTheme.of(context).secondaryBackground,
-                          borderRadius: BorderRadius.circular(0),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: JarvisTheme.of(context).accent1,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: JarvisTheme.of(context).primary,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: Padding(
-                                  padding: EdgeInsets.all(2),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(40),
-                                    child: Image.network(
-                                      'https://source.unsplash.com/random/1280x720?user&2',
-                                      width: 44,
-                                      height: 44,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                    8,
-                                    0,
-                                    0,
-                                    0,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.max,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Randy Mcdonald',
-                                        textAlign: TextAlign.start,
-                                        style: JarvisTheme.of(
-                                          context,
-                                        ).bodyLarge.copyWith(
-                                          fontFamily: 'Inter',
-                                          letterSpacing: 0.0,
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
-                                          0,
-                                          4,
-                                          0,
-                                          0,
-                                        ),
-                                        child: Text(
-                                          'This was really great, i\'m so glad that we could  catchup this weekend.',
-                                          textAlign: TextAlign.start,
-                                          style: JarvisTheme.of(
-                                            context,
-                                          ).labelMedium.copyWith(
-                                            fontFamily: 'Inter',
-                                            letterSpacing: 0.0,
-                                          ),
-                                        ),
-                                      ),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.max,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Padding(
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                  0,
-                                                  4,
-                                                  0,
-                                                  0,
-                                                ),
-                                            child: Text(
-                                              'Mon. July 3rd - 4:12pm',
-                                              textAlign: TextAlign.start,
-                                              style: JarvisTheme.of(
-                                                context,
-                                              ).labelSmall.copyWith(
-                                                fontFamily: 'Inter',
-                                                letterSpacing: 0.0,
-                                              ),
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.chevron_right_rounded,
-                                            color:
-                                                JarvisTheme.of(
-                                                  context,
-                                                ).secondaryText,
-                                            size: 24,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: JarvisTheme.of(context).alternate,
-                  ),
-                  Padding(
-                    padding: EdgeInsetsDirectional.fromSTEB(0, 1, 0, 0),
-                    child: Material(
-                      color: Colors.transparent,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(0),
-                      ),
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: JarvisTheme.of(context).secondaryBackground,
-                          borderRadius: BorderRadius.circular(0),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: JarvisTheme.of(context).accent1,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: JarvisTheme.of(context).primary,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: Padding(
-                                  padding: EdgeInsets.all(2),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(40),
-                                    child: Image.network(
-                                      'https://source.unsplash.com/random/1280x720?user&2',
-                                      width: 44,
-                                      height: 44,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                    8,
-                                    0,
-                                    0,
-                                    0,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.max,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Randy Mcdonald',
-                                        textAlign: TextAlign.start,
-                                        style: JarvisTheme.of(
-                                          context,
-                                        ).bodyLarge.copyWith(
-                                          fontFamily: 'Inter',
-                                          letterSpacing: 0.0,
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
-                                          0,
-                                          4,
-                                          0,
-                                          0,
-                                        ),
-                                        child: Text(
-                                          'This was really great, i\'m so glad that we could  catchup this weekend.',
-                                          textAlign: TextAlign.start,
-                                          style: JarvisTheme.of(
-                                            context,
-                                          ).labelMedium.copyWith(
-                                            fontFamily: 'Inter',
-                                            letterSpacing: 0.0,
-                                          ),
-                                        ),
-                                      ),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.max,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Padding(
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                  0,
-                                                  4,
-                                                  0,
-                                                  0,
-                                                ),
-                                            child: Text(
-                                              'Mon. July 3rd - 4:12pm',
-                                              textAlign: TextAlign.start,
-                                              style: JarvisTheme.of(
-                                                context,
-                                              ).labelSmall.copyWith(
-                                                fontFamily: 'Inter',
-                                                letterSpacing: 0.0,
-                                              ),
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.chevron_right_rounded,
-                                            color:
-                                                JarvisTheme.of(
-                                                  context,
-                                                ).secondaryText,
-                                            size: 24,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: JarvisTheme.of(context).alternate,
-                  ),
-                  Padding(
-                    padding: EdgeInsetsDirectional.fromSTEB(0, 1, 0, 0),
-                    child: Material(
-                      color: Colors.transparent,
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(0),
-                      ),
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: JarvisTheme.of(context).secondaryBackground,
-                          borderRadius: BorderRadius.circular(0),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: JarvisTheme.of(context).accent1,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: JarvisTheme.of(context).primary,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: Padding(
-                                  padding: EdgeInsets.all(2),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(40),
-                                    child: Image.network(
-                                      'https://source.unsplash.com/random/1280x720?user&2',
-                                      width: 44,
-                                      height: 44,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                    8,
-                                    0,
-                                    0,
-                                    0,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.max,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Randy Mcdonald',
-                                        textAlign: TextAlign.start,
-                                        style: JarvisTheme.of(
-                                          context,
-                                        ).bodyLarge.copyWith(
-                                          fontFamily: 'Inter',
-                                          letterSpacing: 0.0,
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
-                                          0,
-                                          4,
-                                          0,
-                                          0,
-                                        ),
-                                        child: Text(
-                                          'This was really great, i\'m so glad that we could  catchup this weekend.',
-                                          textAlign: TextAlign.start,
-                                          style: JarvisTheme.of(
-                                            context,
-                                          ).labelMedium.copyWith(
-                                            fontFamily: 'Inter',
-                                            letterSpacing: 0.0,
-                                          ),
-                                        ),
-                                      ),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.max,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Padding(
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                  0,
-                                                  4,
-                                                  0,
-                                                  0,
-                                                ),
-                                            child: Text(
-                                              'Mon. July 3rd - 4:12pm',
-                                              textAlign: TextAlign.start,
-                                              style: JarvisTheme.of(
-                                                context,
-                                              ).labelSmall.copyWith(
-                                                fontFamily: 'Inter',
-                                                letterSpacing: 0.0,
-                                              ),
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.chevron_right_rounded,
-                                            color:
-                                                JarvisTheme.of(
-                                                  context,
-                                                ).secondaryText,
-                                            size: 24,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                      );
+                    }
+                    return ListView.builder(
+                      itemCount: conversations.length,
+                      itemBuilder: (context, index) {
+                        final conversation = conversations[index];
+                        return _ConversationItem(
+                          conversation: conversation,
+                          onTap: () {
+                            // Navigate to conversation detail
+                            // Navigator.push(context, MaterialPageRoute(
+                            //   builder: (context) => ConversationDetailPage(
+                            //     conversation: conversation,
+                            //   ),
+                            // ));
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
+                onRefresh: () async {
+                  await _loadConversations(refresh: true);
+                },
               ),
-            ),
-            Divider(
-              height: 1,
-              thickness: 1,
-              color: JarvisTheme.of(context).alternate,
             ),
           ],
         ),
       ),
     );
+  }
+}
+
+class _ConversationItem extends StatelessWidget {
+  final Conversation conversation;
+  final VoidCallback onTap;
+
+  const _ConversationItem({required this.conversation, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      elevation: 0,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: JarvisTheme.of(context).secondaryBackground,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: JarvisTheme.of(context).accent1,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: JarvisTheme.of(context).primary,
+                      width: 2,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(40),
+                      child: Image.network(
+                        'https://source.unsplash.com/random/1280x720?ai&${conversation.id}',
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(8, 0, 0, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          conversation.title ?? 'New Conversation',
+                          style: JarvisTheme.of(context).bodyLarge.copyWith(
+                            fontFamily: 'Inter',
+                            letterSpacing: 0.0,
+                          ),
+                        ),
+                        // if (conversation.lastMessage != null)
+                        //   Padding(
+                        //     padding: const EdgeInsetsDirectional.fromSTEB(
+                        //       0,
+                        //       4,
+                        //       0,
+                        //       0,
+                        //     ),
+                        //     child: Text(
+                        //       conversation.lastMessage!,
+                        //       maxLines: 1,
+                        //       overflow: TextOverflow.ellipsis,
+                        //       style: JarvisTheme.of(
+                        //         context,
+                        //       ).labelMedium.copyWith(
+                        //         fontFamily: 'Inter',
+                        //         letterSpacing: 0.0,
+                        //       ),
+                        //     ),
+                        //   ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
+                                0,
+                                4,
+                                0,
+                                0,
+                              ),
+                              child: Text(
+                                _formatDate(conversation.createdAt),
+                                style: JarvisTheme.of(
+                                  context,
+                                ).labelSmall.copyWith(
+                                  fontFamily: 'Inter',
+                                  letterSpacing: 0.0,
+                                ),
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right_rounded, size: 24),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(dynamic dateTimeInput) {
+    try {
+      DateTime date;
+
+      // Handle different input types
+      if (dateTimeInput is String) {
+        date = DateTime.parse(dateTimeInput);
+      } else if (dateTimeInput is DateTime) {
+        date = dateTimeInput;
+      } else if (dateTimeInput is int) {
+        // Assuming milliseconds since epoch if it's an int
+        date = DateTime.fromMillisecondsSinceEpoch(dateTimeInput);
+      } else {
+        return '';
+      }
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      final dateOnly = DateTime(date.year, date.month, date.day);
+
+      // Determine day prefix
+      String dayPrefix;
+      if (dateOnly == today) {
+        dayPrefix = 'Today';
+      } else if (dateOnly == yesterday) {
+        dayPrefix = 'Yesterday';
+      } else {
+        dayPrefix = '${_getMonthName(date.month)} ${date.day}';
+        if (date.year != now.year) {
+          dayPrefix += ', ${date.year}';
+        }
+      }
+
+      // Format time
+      final hour = date.hour % 12;
+      final period = date.hour < 12 ? 'AM' : 'PM';
+      final minute = date.minute.toString().padLeft(2, '0');
+
+      return '$dayPrefix - ${hour == 0 ? 12 : hour}:$minute $period';
+    } catch (e) {
+      debugPrint('Error formatting date: $e');
+      return '';
+    }
+  }
+
+  String _getMonthName(int month) {
+    return const [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ][month - 1];
   }
 }

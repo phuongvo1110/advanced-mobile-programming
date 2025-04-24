@@ -22,14 +22,7 @@ class ApiService {
       print('$baseUrl$endpoint');
       final response = await http.post(
         Uri.parse('$baseUrl$endpoint'),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Stack-Access-Type': 'client',
-          'X-Stack-Publishable-Client-Key':
-              'pck_tqsy29b64a585km2g4wnpc57ypjprzzdch8xzpq0xhayr',
-          'X-Stack-Project-Id': 'a914f06b-5e46-4966-8693-80e4b9f4f409',
-          ...?headers,
-        },
+        headers: {...?headers},
         body: json.encode(body),
       );
       return _handleResponse(response);
@@ -47,7 +40,6 @@ class ApiService {
     Map<String, String>? headers,
   }) async {
     try {
-      print('$baseUrl$endpoint');
       String? userJson = await _secureStorage.read(key: 'user');
       if (userJson == null) {
         print('No access token found. User needs to log in.');
@@ -56,40 +48,90 @@ class ApiService {
       UserModel user = UserModel.fromJson(jsonDecode(userJson));
       final response = await http.delete(
         Uri.parse('$baseUrl$endpoint'),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Stack-Access-Type': 'client',
-          'X-Stack-Publishable-Client-Key':
-              'pck_tqsy29b64a585km2g4wnpc57ypjprzzdch8xzpq0xhayr',
-          'X-Stack-Project-Id': 'a914f06b-5e46-4966-8693-80e4b9f4f409',
-          if (user != null) 'X-Stack-Refresh-Token': '${user.refreshToken}',
-          if (user != null) 'Authorization': 'Bearer ${user.accessToken}',
-          ...?headers,
-        },
+        headers: {...?headers},
         body: json.encode(body),
       );
       return _handleResponse(response);
     } catch (e) {
-      // throw ApiException(e.toString(), 0, 'Invalid');
+      if (e is ApiException) {
+        rethrow; // Don't wrap ApiException again
+      }
+      throw ApiException(e.toString(), 0, {'rawError': e.toString()});
+    }
+  }
+
+  Future<dynamic> get(String endpoint, {Map<String, String>? headers}) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: {...?headers},
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(e.toString(), 0, {'rawError': e.toString()});
+    }
+  }
+
+  Future<dynamic> put(
+    String endpoint, {
+    required Map<String, dynamic> body,
+    Map<String, String>? headers,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: {'Content-Type': 'application/json', ...?headers},
+        body: json.encode(body),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(e.toString(), 0, {'rawError': e.toString()});
+    }
+  }
+
+  Future<dynamic> patch(
+    String endpoint, {
+    required Map<String, dynamic> body,
+    Map<String, String>? headers,
+  }) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: {'Content-Type': 'application/json', ...?headers},
+        body: json.encode(body),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(e.toString(), 0, {'rawError': e.toString()});
     }
   }
 
   dynamic _handleResponse(http.Response response) {
-    final responseData = json.decode(response.body);
-
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return responseData;
+      if (response.body.isEmpty) return null;
+      return json.decode(response.body);
     } else if (response.statusCode == 401) {
       _secureStorage.delete(key: 'user');
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         onUnauthorized();
       });
-      
+
       throw ApiException('Session expired', 401, {});
     } else {
+      if (response.body.isEmpty) {
+        throw ApiException(
+          'Request failed with status ${response.statusCode}',
+          response.statusCode,
+          {},
+        );
+      }
+
+      final responseData = json.decode(response.body);
       final errorData = responseData is Map ? responseData : {};
-      final errorCode = errorData['code']?.toString();
       final errorMessage =
           errorData['error']?.toString() ??
           errorData['message']?.toString() ??

@@ -167,7 +167,7 @@ class _JarvisDropDownState<T> extends State<JarvisDropDown<T>> {
           color: widget.fillColor,
         ),
         child: Padding(
-          padding: _useDropdown2() ? EdgeInsets.zero : widget.margin,
+          padding: _useDropdown2() ? EdgeInsets.fromLTRB(12, 0, 0, 0) : widget.margin,
           child: widget.hidesUnderline
               ? DropdownButtonHideUnderline(child: dropdownWidget)
               : dropdownWidget,

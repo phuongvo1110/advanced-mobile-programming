@@ -1,11 +1,16 @@
+// Updated JarvisService using apiService methods
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:jarvis_ai/models/conversation.dart';
 import 'package:jarvis_ai/models/member.dart';
 import 'package:jarvis_ai/models/prompt.dart';
 import 'package:jarvis_ai/models/user.dart';
+import 'package:jarvis_ai/services/api_service.dart';
+import 'package:jarvis_ai/services/exceptions/api_exception.dart';
 import 'package:mobx/mobx.dart';
-import 'package:http/http.dart' as http;
+
 part 'jarvis_service.g.dart';
 
 class JarvisService = _JarvisService with _$JarvisService;
@@ -13,42 +18,49 @@ class JarvisService = _JarvisService with _$JarvisService;
 abstract class _JarvisService with Store {
   final String baseUrl = 'https://api.dev.jarvis.cx';
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  final ApiService _apiService;
+
+  _JarvisService({required ApiService apiService}) : _apiService = apiService;
   @observable
   bool isLoading = false;
+
   @observable
   Member? member;
+
   @observable
   ObservableList<Prompt> prompts = ObservableList<Prompt>();
   @observable
+  ObservableList<Conversation> conversations = ObservableList<Conversation>();
+
+  @observable
   int currentPage = 0;
+
   @observable
   bool hasMorePrompts = true;
+
   @observable
   String? promptSearchQuery;
+
   @action
   Future<Member?> getCurrentUser() async {
-    isLoading = true;
+    runInAction(() {
+      isLoading = true;
+    });
     try {
-      String? userJson = await _secureStorage.read(key: 'user');
-      if (userJson == null) {
-        print('No access token found. User needs to log in.');
-        return null;
-      }
-      UserModel user = UserModel.fromJson(jsonDecode(userJson));
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/v1/auth/me'),
+      UserModel? user = await getUser();
+
+      final data = await _apiService.get(
+        '/api/v1/auth/me',
         headers: {
           'Content-Type': 'application/json',
           'X-Stack-Access-Type': 'client',
           'X-Stack-Publishable-Client-Key':
               'pck_tqsy29b64a585km2g4wnpc57ypjprzzdch8xzpq0xhayr',
           'X-Stack-Project-Id': 'a914f06b-5e46-4966-8693-80e4b9f4f409',
-          'Authorization': 'Bearer ${user.accessToken}',
+          'Authorization': 'Bearer ${user!.accessToken}',
         },
       );
-      print('${response.body}');
-      final data = jsonDecode(response.body);
-      print('Data: $data');
+
       member = Member(
         id: data['id'],
         email: data['email'],
@@ -56,13 +68,16 @@ abstract class _JarvisService with Store {
         roles: List<String>.from(data['roles'] ?? []),
         geo: data['geo'],
       );
-      print('User fetched successfully: ${member?.username}');
+
       return member;
     } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
       print('Error fetching user: $e');
       return null;
     } finally {
-      isLoading = false;
+      runInAction(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -81,15 +96,14 @@ abstract class _JarvisService with Store {
       currentPage = 0;
       hasMorePrompts = true;
     }
-    if (!hasMorePrompts) {
-      return;
-    }
-    isLoading = true;
-    try {
-      String? userJson = await _secureStorage.read(key: 'user');
-      if (userJson == null) throw Exception('User not logged in');
+    if (!hasMorePrompts) return;
 
-      UserModel user = UserModel.fromJson(jsonDecode(userJson));
+    runInAction(() {
+      isLoading = true;
+    });
+    try {
+      UserModel? user = await getUser();
+
       final params = {
         'limit': limit.toString(),
         'offset': offset.toString(),
@@ -98,40 +112,33 @@ abstract class _JarvisService with Store {
         if (isPublic != null) 'isPublic': isPublic.toString(),
         if (isFavorite != null) 'isFavorite': isFavorite.toString(),
       };
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/v1/prompts').replace(queryParameters: params),
+
+      final queryString = Uri(queryParameters: params).query;
+      print('QueryString: $queryString');
+      final data = await _apiService.get(
+        '/api/v1/prompts?$queryString',
         headers: {
           'x-jarvis-guid': '',
-          'Authorization': 'Bearer ${user.accessToken}',
+          'Authorization': 'Bearer ${user!.accessToken}',
         },
       );
-      print('${response.body}');
-      final data = jsonDecode(response.body);
+      print('Data: $data');
       final List<Prompt> newPrompts =
           (data['items'] as List).map((item) => Prompt.fromJson(item)).toList();
-      if (refresh) {
-        prompts.clear();
-      }
+
+      if (refresh) prompts.clear();
       prompts.addAll(newPrompts);
       hasMorePrompts = data['hasNext'] ?? false;
       currentPage++;
     } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
       print('Error fetching prompts: $e');
       rethrow;
     } finally {
-      isLoading = false;
+      runInAction(() {
+        isLoading = false;
+      });
     }
-  }
-
-  @action
-  Future<void> loadMorePrompts() async {
-    if (!hasMorePrompts || isLoading) return;
-    await getPrompts(offset: currentPage * 20, search: promptSearchQuery);
-  }
-
-  @action
-  Future<void> refreshPrompts() async {
-    await getPrompts(refresh: true);
   }
 
   @action
@@ -157,26 +164,23 @@ abstract class _JarvisService with Store {
                     'Authorization': 'Bearer ${user?.accessToken}',
                   },
                 );
-        print(response.body);
+        if (response.statusCode == 401) {
+          throw ApiException('Session expired', 401, {});
+        }
         final index = prompts.indexWhere((prompt) => prompt.id == id);
         if (index != -1) {
           final oldPrompt = prompts[index];
-          final newPrompt = Prompt(
-            id: oldPrompt.id,
-            title: oldPrompt.title,
-            description: oldPrompt.description,
-            isPublic: oldPrompt.isPublic,
-            isFavorite: !oldPrompt.isFavorite!,
-            createdAt: oldPrompt.createdAt,
-            updatedAt: oldPrompt.updatedAt,
-            content: oldPrompt.content,
-            userId: oldPrompt.userId,
-            userName: oldPrompt.userName,
+          print('Old prompt: $oldPrompt');
+          prompts[index] = oldPrompt.copyWith(
+            isFavorite: !(oldPrompt.isFavorite ?? false),
           );
-          prompts[index] = newPrompt;
         }
       }
     } catch (e) {
+      if (e is ApiException && e.statusCode == 401) {
+        // This will trigger the unauthorized handler in ApiService
+        rethrow;
+      }
       print('Error toggling favorite: $e');
       rethrow;
     }
@@ -193,15 +197,10 @@ abstract class _JarvisService with Store {
   }) async {
     try {
       UserModel? user = await getUser();
-      isLoading = true;
-      if (title.trim().isEmpty) {
-        throw Exception('Title is required');
-      }
-      if (content.trim().isEmpty) {
-        throw Exception('Content is required');
-      }
+      runInAction(() {
+        isLoading = true;
+      });
 
-      // Prepare the request body
       final requestBody = {
         'title': title.trim(),
         'content': content.trim(),
@@ -212,117 +211,229 @@ abstract class _JarvisService with Store {
           'category': category.trim().toLowerCase(),
       };
 
-      print('Request body: $requestBody');
-
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/v1/prompts'),
+      final data = await _apiService.post(
+        '/api/v1/prompts',
         headers: {
           'Content-Type': 'application/json',
           'x-jarvis-guid': '',
           'Authorization': 'Bearer ${user?.accessToken}',
         },
-        body: jsonEncode(requestBody),
+        body: requestBody,
       );
-      if (response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        final newPrompt = Prompt.fromJson(data);
-        print('New Prompt $newPrompt');
-        return newPrompt;
-      } else {
-        throw Exception('Failed to create prompt: ${response.body}');
-      }
+
+      return Prompt.fromJson(data);
     } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
       print('Error creating prompt: $e');
       rethrow;
     } finally {
-      isLoading = false;
+      runInAction(() {
+        isLoading = false;
+      });
     }
   }
 
   @action
-  Future<Prompt?> updatePrompt(Prompt updatePrompt) async {
+  Future<Prompt?> updatePrompt({
+    required String id,
+    required String title,
+    required String content,
+    String? description,
+    required bool isPublic,
+    String? category,
+  }) async {
     try {
-      isLoading = true;
+      runInAction(() {
+        isLoading = true;
+      });
       final user = await getUser();
-      if (user == null) throw Exception('User not logged in');
+
       final requestBody = {
-        'title': updatePrompt.title.trim(),
-        'content': updatePrompt.content.trim(),
-        'isPublic': updatePrompt.isPublic,
-        if (updatePrompt.description != null &&
-            updatePrompt.description!.trim().isNotEmpty)
-          'description': updatePrompt.description!.trim(),
-        if (updatePrompt.category != null &&
-            updatePrompt.category!.trim().isNotEmpty)
-          'category': updatePrompt.category!.trim().toLowerCase(),
+        'title': title.trim(),
+        'content': content.trim(),
+        'isPublic': isPublic,
+        if (description != null && description.trim().isNotEmpty)
+          'description': description.trim(),
+        if (category != null && category.trim().isNotEmpty)
+          'category': category.trim().toLowerCase(),
       };
-      final response = await http.patch(
-        Uri.parse('$baseUrl/api/v1/prompts/${updatePrompt.id}'),
+
+      final data = await _apiService.patch(
+        '/api/v1/prompts/${id}',
         headers: {
           'Content-Type': 'application/json',
           'x-jarvis-guid': '',
-          'Authorization': 'Bearer ${user.accessToken}',
+          'Authorization': 'Bearer ${user!.accessToken}',
         },
-        body: jsonEncode(requestBody),
+        body: requestBody,
       );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final updatedPrompt = Prompt.fromJson(data);
 
-        final index = prompts.indexWhere((p) => p.id == updatePrompt.id);
-        if (index != -1) {
-          prompts[index] = updatedPrompt;
-        }
-        return updatedPrompt;
-      } else {
-        throw Exception('Failed to update prompt: ${response.body}');
-      }
+      final updatedPrompt = Prompt.fromJson(data);
+      final index = prompts.indexWhere((p) => p.id == id);
+      if (index != -1) prompts[index] = updatedPrompt;
+      return updatedPrompt;
     } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
       print('Error updating prompt: $e');
     } finally {
-      isLoading = false;
+      runInAction(() {
+        isLoading = false;
+      });
     }
   }
 
   @action
   Future<bool> deletePrompt(String id) async {
     try {
-      isLoading = true;
+      runInAction(() {
+        isLoading = true;
+      });
       final user = await getUser();
-      if (user == null) throw Exception('User not logged in');
-      final response = await http.delete(
-        Uri.parse('$baseUrl/api/v1/prompts/${id}'),
+
+      await _apiService.delete(
+        '/api/v1/prompts/$id',
         headers: {
           'Content-Type': 'application/json',
           'x-jarvis-guid': '',
-          'Authorization': 'Bearer ${user.accessToken}',
+          'Authorization': 'Bearer ${user!.accessToken}',
         },
+        body: {},
       );
-      print('Response: ${response.body}');
-      if (response.statusCode == 200) {
-        final index = prompts.indexWhere((p) => p.id == id);
-        if (index != -1) {
-          prompts.removeAt(index);
-        }
-        return true;
-      } else
-        return false;
+
+      final index = prompts.indexWhere((p) => p.id == id);
+      if (index != -1) prompts.removeAt(index);
+      return true;
     } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
       print('Error deleting prompt: $e');
       return false;
     } finally {
-      isLoading = false;
+      runInAction(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @action
+  Future<void> loadMorePrompts() async {
+    if (!hasMorePrompts || isLoading) return;
+    await getPrompts(offset: currentPage * 20, search: promptSearchQuery);
+  }
+
+  @action
+  Future<void> refreshPrompts() async {
+    await getPrompts(refresh: true);
+  }
+
+  @action
+  Future<void> getConversations({
+    String? cursor,
+    int? limit,
+    String assistanId = 'gpt-4o-mini',
+    String assistantModel = 'dify',
+    bool refresh = false,
+  }) async {
+    if (refresh) {
+      conversations.clear();
+    }
+    runInAction(() {
+      isLoading = true;
+    });
+    try {
+      final user = await getUser();
+      final params = {
+        if (cursor != null && cursor.isNotEmpty) 'cursor': cursor.toString(),
+        if (limit != null) 'limit': limit.toString(),
+        'assistantId': assistanId.toString(),
+        'assistantModel': assistantModel.toString(),
+      };
+
+      final queryString = Uri(queryParameters: params).query;
+      final response = await _apiService.get(
+        '/api/v1/ai-chat/conversations?$queryString',
+        headers: {
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+      );
+      print('Conversations: $response');
+      final List<Conversation> newConversations =
+          (response['items'] as List)
+              .map((item) => Conversation.fromJson(item))
+              .toList();
+      if (refresh) conversations.clear();
+      conversations.addAll(newConversations);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error fetching prompts: $e');
+      rethrow;
+    } finally {
+      runInAction(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @action
+  Future<String?> sendMessage({
+    required String content,
+    required Assistant assistant,
+    List<String> files = const [],
+    List<Map<String, dynamic>> conversationHistory = const [],
+  }) async {
+    try {
+      final user = await getUser();
+      final userMessage = Message(
+        assistant: assistant,
+        content: content,
+        files: files,
+        role: 'user',
+      );
+      late dynamic requestBody = {};
+      if (conversationHistory.isEmpty) {
+        requestBody = {
+          'content': content,
+          'files': files,
+          'metadata': {
+            'conversation': {'messages': userMessage.toJson()},
+          },
+          'assistant': assistant.toJson(),
+        };
+        print('User message: $userMessage');
+      } else {
+        final updatedHistory = List<Map<String, dynamic>>.from(
+          conversationHistory,
+        )..add(userMessage.toJson());
+        requestBody = {
+          'content': content,
+          'files': files,
+          'metadata': {
+            'conversation': {'messages': updatedHistory},
+          },
+          'assistant': assistant.toJson(),
+        };
+      }
+      final data = await _apiService.post(
+        '/api/v1/ai-chat/messages',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+        body: requestBody,
+      );
+      print('data $data');
+      return data['message'] ?? 'No response content';
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error updating prompt: $e');
     }
   }
 
   @action
   Future<UserModel?> getUser() async {
     String? userJson = await _secureStorage.read(key: 'user');
-    if (userJson == null) {
-      print('No access token found. User needs to log in.');
-      return null;
-    }
-    UserModel user = UserModel.fromJson(jsonDecode(userJson));
-    return user;
+    if (userJson == null) return null;
+    return UserModel.fromJson(jsonDecode(userJson));
   }
 }

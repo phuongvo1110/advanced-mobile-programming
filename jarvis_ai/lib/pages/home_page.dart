@@ -102,29 +102,29 @@ class HomePage extends StatelessWidget {
                           verticalDirection: VerticalDirection.down,
                           clipBehavior: Clip.none,
                           children: [
-                            Material(
-                              color: Colors.transparent,
-                              elevation: 1,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Container(
-                                width: 150,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.pushNamed(context, '/chat');
+                              },
+                              child: Material(
+                                color: Colors.transparent,
+                                elevation: 1,
+                                shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                    16,
-                                    16,
-                                    16,
-                                    16,
+                                child: Container(
+                                  width: 150,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      Navigator.pushNamed(context, '/chat');
-                                    },
+                                  child: Padding(
+                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                      16,
+                                      16,
+                                      16,
+                                      16,
+                                    ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
@@ -154,29 +154,29 @@ class HomePage extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            Material(
-                              color: Colors.transparent,
-                              elevation: 1,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Container(
-                                width: 150,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.pushNamed(context, '/messages');
+                              },
+                              child: Material(
+                                color: Colors.transparent,
+                                elevation: 1,
+                                shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                    16,
-                                    16,
-                                    16,
-                                    16,
+                                child: Container(
+                                  width: 150,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      Navigator.pushNamed(context, '/messages');
-                                    },
+                                  child: Padding(
+                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                      16,
+                                      16,
+                                      16,
+                                      16,
+                                    ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
@@ -206,29 +206,29 @@ class HomePage extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            Material(
-                              color: Colors.transparent,
-                              elevation: 1,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Container(
-                                width: 150,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.pushNamed(context, '/bots');
+                              },
+                              child: Material(
+                                color: Colors.transparent,
+                                elevation: 1,
+                                shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                    16,
-                                    16,
-                                    16,
-                                    16,
+                                child: Container(
+                                  width: 150,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      Navigator.pushNamed(context, '/bots');
-                                    },
+                                  child: Padding(
+                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                      16,
+                                      16,
+                                      16,
+                                      16,
+                                    ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
@@ -258,29 +258,29 @@ class HomePage extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            Material(
-                              color: Colors.transparent,
-                              elevation: 1,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Container(
-                                width: 150,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.pushNamed(context, '/prompts');
+                              },
+                              child: Material(
+                                color: Colors.transparent,
+                                elevation: 1,
+                                shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                    16,
-                                    16,
-                                    16,
-                                    16,
+                                child: Container(
+                                  width: 150,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      Navigator.pushNamed(context, '/prompts');
-                                    },
+                                  child: Padding(
+                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                      16,
+                                      16,
+                                      16,
+                                      16,
+                                    ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:

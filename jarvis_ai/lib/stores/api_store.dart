@@ -12,21 +12,47 @@ abstract class _ApiStore with Store {
   late final ApiService apiService;
   late final AuthService authService;
   late final JarvisService jarvisService;
-  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  late GlobalKey<NavigatorState> _navigatorKey;
   ApiStore get asApiStore => this as ApiStore;
 
   @action
   void initServices(GlobalKey<NavigatorState> navigatorKey) {
-    apiService = ApiService(
-      baseUrl: 'https://auth-api.dev.jarvis.cx',
-      onUnauthorized: () {
-        navigatorKey.currentState?.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => LoginPage(apiStore: this as ApiStore,)),
-          (route) => false,
-        );
-      },
+    _navigatorKey = navigatorKey;
+    authService = AuthService(
+      apiService: ApiService(
+        baseUrl: 'https://auth-api.dev.jarvis.cx',
+        onUnauthorized: _handleUnauthorized,
+      ),
     );
-    authService = AuthService(apiService: apiService);
-    jarvisService = JarvisService();
+    jarvisService = JarvisService(
+      apiService: ApiService(
+        baseUrl: 'https://api.dev.jarvis.cx',
+        onUnauthorized: _handleUnauthorized,
+      ),
+    );
   }
+
+  Future<void> _handleUnauthorized() async {
+  try {
+    print('Handling unauthorized access');
+    // await const FlutterSecureStorage().delete(key: 'user');
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_navigatorKey.currentState == null) {
+        print('Navigator state is null - cannot navigate');
+        return;
+      }
+      
+      print('Navigating to login page');
+      _navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => LoginPage(apiStore: this as ApiStore),
+        ),
+        (route) => false,
+      );
+    });
+  } catch (e) {
+    print('Error in _handleUnauthorized: $e');
+  }
+}
 }

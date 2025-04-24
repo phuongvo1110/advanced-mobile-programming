@@ -167,15 +167,6 @@ class _PrompCreatingPageWidgetState extends State<PromptCreatingPage> {
       _isCreating = true;
     });
     try {
-      Prompt promptValue = Prompt(
-        id: widget.existingPrompt!.id,
-        title: _model.titleController.text,
-        content: _model.contentController.text,
-        description: _model.descriptionController.text,
-        isPublic: _model.switchIsPublic ?? true,
-        category: _model.categoryDropdownValue,
-      );
-
       final prompt =
           widget.existingPrompt == null
               ? await widget.apiStore.jarvisService.createPrompt(
@@ -185,7 +176,16 @@ class _PrompCreatingPageWidgetState extends State<PromptCreatingPage> {
                 isPublic: _model.switchIsPublic ?? true,
                 category: _model.categoryDropdownValue ?? 'OTHER',
               )
-              : await widget.apiStore.jarvisService.updatePrompt(promptValue);
+              : {
+                await widget.apiStore.jarvisService.updatePrompt(
+                  id: widget.existingPrompt!.id,
+                  title: _model.titleController.text,
+                  content: _model.contentController.text,
+                  description: _model.descriptionController.text,
+                  isPublic: _model.switchIsPublic ?? true,
+                  category: _model.categoryDropdownValue,
+                ),
+              };
       ;
       if (widget.existingPrompt == null && prompt != null) {
         ScaffoldMessenger.of(
