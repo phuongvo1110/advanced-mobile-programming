@@ -375,6 +375,29 @@ abstract class _JarvisService with Store {
   }
 
   @action
+  Future<List<Message>?> getConversationHistory({
+    required String conversationId,
+    String assistantModel = 'dify',
+  }) async {
+    try {
+      final user = await getUser();
+      final response = await _apiService.get(
+        '/api/v1/ai-chat/conversations/$conversationId/messages?assistantModel=$assistantModel',
+        headers: {'Authorization': 'Bearer ${user!.accessToken}'},
+      );
+      if (response == null || response['items'] == null) {
+        return null;
+      }
+      return (response['items'] as List)
+          .map((item) => Message.fromJson(item))
+          .toList();
+    } catch (e) {
+      print('Error fetching conversation history: $e');
+      return null;
+    }
+  }
+
+  @action
   Future<String?> sendMessage({
     required String content,
     required Assistant assistant,
@@ -389,30 +412,19 @@ abstract class _JarvisService with Store {
         files: files,
         role: 'user',
       );
-      late dynamic requestBody = {};
-      if (conversationHistory.isEmpty) {
-        requestBody = {
-          'content': content,
-          'files': files,
-          'metadata': {
-            'conversation': {'messages': userMessage.toJson()},
-          },
-          'assistant': assistant.toJson(),
-        };
-        print('User message: $userMessage');
-      } else {
-        final updatedHistory = List<Map<String, dynamic>>.from(
-          conversationHistory,
-        )..add(userMessage.toJson());
-        requestBody = {
-          'content': content,
-          'files': files,
-          'metadata': {
-            'conversation': {'messages': updatedHistory},
-          },
-          'assistant': assistant.toJson(),
-        };
-      }
+      final messages =
+          conversationHistory.isEmpty
+              ? [userMessage.toJson()]
+              : [...conversationHistory, userMessage.toJson()];
+      final requestBody = {
+        'content': content,
+        'files': files,
+        'metadata': {
+          'conversation': {'messages': messages},
+        },
+        'assistant': assistant.toJson(),
+      };
+      
       final data = await _apiService.post(
         '/api/v1/ai-chat/messages',
         headers: {
@@ -426,7 +438,7 @@ abstract class _JarvisService with Store {
       return data['message'] ?? 'No response content';
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) rethrow;
-      print('Error updating prompt: $e');
+      print('Error send message: $e');
     }
   }
 

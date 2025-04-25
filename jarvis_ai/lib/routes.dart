@@ -13,9 +13,11 @@ import 'package:jarvis_ai/pages/signup_page.dart';
 import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:provider/provider.dart';
 
-
 class AppRoutes {
-  static Route<dynamic> generateRoute(RouteSettings settings, ApiStore apiStore) {
+  static Route<dynamic> generateRoute(
+    RouteSettings settings,
+    ApiStore apiStore,
+  ) {
     switch (settings.name) {
       case '/':
         return MaterialPageRoute(builder: (_) => HomePage(apiStore: apiStore));
@@ -26,13 +28,26 @@ class AppRoutes {
           builder: (_) => SignupPage(apiStore: apiStore),
         );
       case '/messages':
-        return MaterialPageRoute(builder: (_) =>  MessagesPage(apiStore: apiStore));
+        return MaterialPageRoute(
+          builder: (_) => MessagesPage(apiStore: apiStore),
+        );
       case '/chat':
-        return MaterialPageRoute(builder: (_) =>  AIMessagePage(apiStore: apiStore));
+        final args = settings.arguments as Map<String, dynamic>?;
+        return MaterialPageRoute(
+          builder:
+              (_) => AIMessagePage(
+                apiStore: apiStore,
+                assistantId: args?['assistantId'] as String?,
+              ),
+        );
       case '/bots':
-        return MaterialPageRoute(builder: (_) => const AiBotsManagingPage());
+        return MaterialPageRoute(
+          builder: (_) => AiBotsManagingPage(apiStore: apiStore),
+        );
       case '/create-bot':
-        return MaterialPageRoute(builder: (_) => const AIBotCreatePageWidget());
+        return MaterialPageRoute(
+          builder: (_) => AIBotCreatePageWidget(apiStore: apiStore),
+        );
       case '/prompts':
         return MaterialPageRoute(
           builder: (_) => PromptManagingPage(apiStore: apiStore),

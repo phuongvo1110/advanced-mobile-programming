@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:jarvis_ai/components/assistant_card_widget.dart';
+import 'package:jarvis_ai/pages/ai_bot_create.dart';
+import 'package:jarvis_ai/stores/api_store.dart';
+import 'package:jarvis_ai/theme/flutter_flow_model.dart';
 import 'package:jarvis_ai/theme/flutter_flow_theme.dart';
 import 'package:jarvis_ai/theme/form_field_controller.dart';
 import 'package:jarvis_ai/theme/jarvis_drop_down.dart';
 import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
+import 'package:confirm_dialog/confirm_dialog.dart';
 
-class AIBotsManagingPageModel {
+const sortOptions = <String, String>{
+  'Recent': 'createdAt',
+  'Name': 'assistantName',
+};
+
+class AIBotsManagingPageModel extends FlutterFlowModel<AiBotsManagingPage> {
   FocusNode? textFieldFocusNode;
   TextEditingController? textController;
   String? Function(String?)? textControllerValidator;
@@ -13,6 +24,10 @@ class AIBotsManagingPageModel {
   String? dropDownValue;
   FormFieldController<String>? dropDownValueController;
 
+  @override
+  void initState(BuildContext context) {}
+
+  @override
   void dispose() {
     textFieldFocusNode?.dispose();
     textController?.dispose();
@@ -20,7 +35,8 @@ class AIBotsManagingPageModel {
 }
 
 class AiBotsManagingPage extends StatefulWidget {
-  const AiBotsManagingPage({super.key});
+  const AiBotsManagingPage({super.key, required this.apiStore});
+  final ApiStore apiStore;
 
   @override
   State<AiBotsManagingPage> createState() => _AIBotsManagingPageWidgetState();
@@ -28,12 +44,55 @@ class AiBotsManagingPage extends StatefulWidget {
 
 class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
   late AIBotsManagingPageModel _model;
+  final ScrollController _scrollController = ScrollController();
+  String _selectedSort = 'createdAt';
   @override
   void initState() {
     super.initState();
-    _model = AIBotsManagingPageModel();
+    _model = createModel(context, () => AIBotsManagingPageModel());
+    _scrollController.addListener(_scrollListener);
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
+    _loadAssistants(refresh: true);
+  }
+
+  void _scrollListener() {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
+      widget.apiStore.kbService.loadMoreAssistants();
+    }
+  }
+
+  Future<void> _loadAssistants({bool refresh = false}) async {
+    try {
+      await widget.apiStore.kbService.getAssistants(
+        refresh: refresh,
+        search: _model.textController?.text,
+        isFavorite: false,
+        isPublished: false,
+        order: 'ASC',
+        order_field: _selectedSort,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load AI Bots: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _deleteAssistant(String id) async {
+    try {
+      final result = await widget.apiStore.kbService.deleteAssistant(id: id);
+      if (result) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Delete Bot successfully')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load AI Bots: ${e.toString()}')),
+      );
+    }
   }
 
   @override
@@ -160,6 +219,7 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
                 ).bodyMedium.override(fontFamily: 'Inter', letterSpacing: 0.0),
                 cursorColor: JarvisTheme.of(context).primaryText,
                 validator: _model.textControllerValidator,
+                onChanged: (value) => _loadAssistants(refresh: true),
               ),
             ),
           ),
@@ -180,9 +240,15 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
                 JarvisDropDown<String>(
                   controller:
                       _model.dropDownValueController ??=
-                          FormFieldController<String>(null),
-                  options: ['Recent', 'Name', 'Type'],
-                  onChanged: (val) => {},
+                          FormFieldController<String>(_selectedSort),
+                  options: sortOptions.keys.toList(),
+                  onChanged: (String? val) {
+                    if (val == null) return;
+                    setState(() {
+                      _selectedSort = sortOptions[val] as String;
+                    });
+                    _loadAssistants(refresh: true);
+                  },
                   width: 120.0,
                   height: 36.0,
                   textStyle: JarvisTheme.of(context).bodyMedium.override(
@@ -209,482 +275,74 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
               ],
             ),
           ),
-          ListView(
-            padding: EdgeInsets.zero,
-            shrinkWrap: true,
-            scrollDirection: Axis.vertical,
-            children: [
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(16.0, 12.0, 16.0, 12.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: JarvisTheme.of(context).secondaryBackground,
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(12.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.max,
-                      children: [
-                        Container(
-                          width: 60.0,
-                          height: 60.0,
-                          decoration: BoxDecoration(
-                            color: JarvisTheme.of(context).primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: JarvisTheme.of(context).alternate,
-                              width: 1.0,
-                            ),
-                          ),
-                          child: Align(
-                            alignment: AlignmentDirectional(0.0, 0.0),
-                            child: Icon(
-                              Icons.smart_toy_rounded,
-                              color: JarvisTheme.of(context).info,
-                              size: 30.0,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
-                              12.0,
-                              0.0,
-                              12.0,
-                              0.0,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.max,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Research Assistant',
-                                  style: JarvisTheme.of(
-                                    context,
-                                  ).titleMedium.override(
-                                    fontFamily: 'Inter Tight',
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                    0.0,
-                                    4.0,
-                                    0.0,
-                                    0.0,
-                                  ),
-                                  child: Text(
-                                    'Helps with academic research and citations',
-                                    style: JarvisTheme.of(
-                                      context,
-                                    ).bodySmall.override(
-                                      fontFamily: 'Inter',
-                                      color:
-                                          JarvisTheme.of(context).secondaryText,
-                                      letterSpacing: 0.0,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        JarvisIconButton(
-                          borderRadius: 20.0,
-                          buttonSize: 40.0,
-                          icon: Icon(
-                            Icons.more_vert,
-                            color: JarvisTheme.of(context).secondaryText,
-                            size: 24.0,
-                          ),
-                          onPressed: () {
-                            print('IconButton pressed ...');
-                          },
-                        ),
-                      ],
+          Expanded(
+            child: Observer(
+              builder: (context) {
+                final assistants =
+                    widget.apiStore.kbService.assistants.toList();
+                if (widget.apiStore.kbService.isLoading) {
+                  return Center(child: CircularProgressIndicator());
+                }
+                if (assistants.isEmpty &&
+                    !widget.apiStore.kbService.isLoading) {
+                  return Center(
+                    child: Text(
+                      'No AI Bots available',
+                      style: JarvisTheme.of(context).bodyMedium,
                     ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(16.0, 12.0, 16.0, 12.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: JarvisTheme.of(context).secondaryBackground,
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(12.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.max,
-                      children: [
-                        Container(
-                          width: 60.0,
-                          height: 60.0,
-                          decoration: BoxDecoration(
-                            color: JarvisTheme.of(context).secondary,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: JarvisTheme.of(context).alternate,
-                              width: 1.0,
-                            ),
+                  );
+                }
+                return ListView.builder(
+                  controller: _scrollController,
+                  itemCount:
+                      widget.apiStore.kbService.assistants.length +
+                      (widget.apiStore.kbService.hasMoreAssistants ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index >= widget.apiStore.kbService.assistants.length) {
+                      return widget.apiStore.kbService.isLoading
+                          ? Center(child: CircularProgressIndicator())
+                          : SizedBox.shrink();
+                    }
+                    final assistant =
+                        widget.apiStore.kbService.assistants[index];
+                    return AssistantCardWidget(
+                      assistant: assistant,
+                      onEditPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) {
+                              return AIBotCreatePageWidget(
+                                apiStore: widget.apiStore,
+                                existingAssistantId: assistant.id,
+                              );
+                            },
                           ),
-                          child: Align(
-                            alignment: AlignmentDirectional(0.0, 0.0),
-                            child: Icon(
-                              Icons.code_rounded,
-                              color: JarvisTheme.of(context).info,
-                              size: 30.0,
-                            ),
+                        );
+                        // If result is true, refresh assistants
+                        if (result == true) {
+                          await _loadAssistants(refresh: true);
+                        }
+                      },
+                      onDeletePressed: () async {
+                        if (await confirm(
+                          context,
+                          title: Text('Delete Confirm'),
+                          content: Text(
+                            'Do you want to delete ${assistant.assistantName}',
                           ),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
-                              12.0,
-                              0.0,
-                              12.0,
-                              0.0,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.max,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Code Helper',
-                                  style: JarvisTheme.of(
-                                    context,
-                                  ).titleMedium.override(
-                                    fontFamily: 'Inter Tight',
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                    0.0,
-                                    4.0,
-                                    0.0,
-                                    0.0,
-                                  ),
-                                  child: Text(
-                                    'Assists with programming and debugging',
-                                    style: JarvisTheme.of(
-                                      context,
-                                    ).bodySmall.override(
-                                      fontFamily: 'Inter',
-                                      color:
-                                          JarvisTheme.of(context).secondaryText,
-                                      letterSpacing: 0.0,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        JarvisIconButton(
-                          borderRadius: 20.0,
-                          buttonSize: 40.0,
-                          icon: Icon(
-                            Icons.more_vert,
-                            color: JarvisTheme.of(context).secondaryText,
-                            size: 24.0,
-                          ),
-                          onPressed: () {
-                            print('IconButton pressed ...');
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(16.0, 12.0, 16.0, 12.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: JarvisTheme.of(context).secondaryBackground,
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(12.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.max,
-                      children: [
-                        Container(
-                          width: 60.0,
-                          height: 60.0,
-                          decoration: BoxDecoration(
-                            color: JarvisTheme.of(context).tertiary,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: JarvisTheme.of(context).alternate,
-                              width: 1.0,
-                            ),
-                          ),
-                          child: Align(
-                            alignment: AlignmentDirectional(0.0, 0.0),
-                            child: Icon(
-                              Icons.edit_note_rounded,
-                              color: JarvisTheme.of(context).info,
-                              size: 30.0,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
-                              12.0,
-                              0.0,
-                              12.0,
-                              0.0,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.max,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Writing Assistant',
-                                  style: JarvisTheme.of(
-                                    context,
-                                  ).titleMedium.override(
-                                    fontFamily: 'Inter Tight',
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                    0.0,
-                                    4.0,
-                                    0.0,
-                                    0.0,
-                                  ),
-                                  child: Text(
-                                    'Helps with content creation and editing',
-                                    style: JarvisTheme.of(
-                                      context,
-                                    ).bodySmall.override(
-                                      fontFamily: 'Inter',
-                                      color:
-                                          JarvisTheme.of(context).secondaryText,
-                                      letterSpacing: 0.0,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        JarvisIconButton(
-                          borderRadius: 20.0,
-                          buttonSize: 40.0,
-                          icon: Icon(
-                            Icons.more_vert,
-                            color: JarvisTheme.of(context).secondaryText,
-                            size: 24.0,
-                          ),
-                          onPressed: () {
-                            print('IconButton pressed ...');
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(16.0, 12.0, 16.0, 12.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: JarvisTheme.of(context).secondaryBackground,
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(12.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.max,
-                      children: [
-                        Container(
-                          width: 60.0,
-                          height: 60.0,
-                          decoration: BoxDecoration(
-                            color: JarvisTheme.of(context).success,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: JarvisTheme.of(context).alternate,
-                              width: 1.0,
-                            ),
-                          ),
-                          child: Align(
-                            alignment: AlignmentDirectional(0.0, 0.0),
-                            child: Icon(
-                              Icons.translate_rounded,
-                              color: JarvisTheme.of(context).info,
-                              size: 30.0,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
-                              12.0,
-                              0.0,
-                              12.0,
-                              0.0,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.max,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Language Translator',
-                                  style: JarvisTheme.of(
-                                    context,
-                                  ).titleMedium.override(
-                                    fontFamily: 'Inter Tight',
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                    0.0,
-                                    4.0,
-                                    0.0,
-                                    0.0,
-                                  ),
-                                  child: Text(
-                                    'Translates text between multiple languages',
-                                    style: JarvisTheme.of(
-                                      context,
-                                    ).bodySmall.override(
-                                      fontFamily: 'Inter',
-                                      color:
-                                          JarvisTheme.of(context).secondaryText,
-                                      letterSpacing: 0.0,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        JarvisIconButton(
-                          borderRadius: 20.0,
-                          buttonSize: 40.0,
-                          icon: Icon(
-                            Icons.more_vert,
-                            color: JarvisTheme.of(context).secondaryText,
-                            size: 24.0,
-                          ),
-                          onPressed: () {
-                            print('IconButton pressed ...');
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(16.0, 12.0, 16.0, 12.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: JarvisTheme.of(context).secondaryBackground,
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(12.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.max,
-                      children: [
-                        Container(
-                          width: 60.0,
-                          height: 60.0,
-                          decoration: BoxDecoration(
-                            color: JarvisTheme.of(context).warning,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: JarvisTheme.of(context).alternate,
-                              width: 1.0,
-                            ),
-                          ),
-                          child: Align(
-                            alignment: AlignmentDirectional(0.0, 0.0),
-                            child: Icon(
-                              Icons.psychology_alt_rounded,
-                              color: JarvisTheme.of(context).info,
-                              size: 30.0,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
-                              12.0,
-                              0.0,
-                              12.0,
-                              0.0,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.max,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Creative Companion',
-                                  style: JarvisTheme.of(
-                                    context,
-                                  ).titleMedium.override(
-                                    fontFamily: 'Inter Tight',
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                    0.0,
-                                    4.0,
-                                    0.0,
-                                    0.0,
-                                  ),
-                                  child: Text(
-                                    'Generates creative ideas and inspiration',
-                                    style: JarvisTheme.of(
-                                      context,
-                                    ).bodySmall.override(
-                                      fontFamily: 'Inter',
-                                      color:
-                                          JarvisTheme.of(context).secondaryText,
-                                      letterSpacing: 0.0,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        JarvisIconButton(
-                          borderRadius: 20.0,
-                          buttonSize: 40.0,
-                          icon: Icon(
-                            Icons.more_vert,
-                            color: JarvisTheme.of(context).secondaryText,
-                            size: 24.0,
-                          ),
-                          onPressed: () {
-                            print('IconButton pressed ...');
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+                          textOK: Text('Yes'),
+                          textCancel: Text('No'),
+                        )) {
+                          _deleteAssistant(assistant.id);
+                        }
+                      },
+                      apiStore: widget.apiStore,
+                    );
+                  },
+                );
+              },
+            ),
           ),
           Align(
             alignment: AlignmentDirectional(0.0, 1.0),
@@ -704,8 +362,22 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
               child: Padding(
                 padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 16.0),
                 child: FFButtonWidget(
-                  onPressed: () {
-                    print('Button pressed ...');
+                  onPressed: () async {
+                    // Navigate to create page and wait for result
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) {
+                          return AIBotCreatePageWidget(
+                            apiStore: widget.apiStore,
+                          );
+                        },
+                      ),
+                    );
+                    // If result is true, refresh assistants
+                    if (result == true) {
+                      await _loadAssistants(refresh: true);
+                    }
                   },
                   text: 'Create New Assistant',
                   options: FFButtonOptions(

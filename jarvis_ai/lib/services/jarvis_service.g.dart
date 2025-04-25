@@ -241,6 +241,17 @@ mixin _$JarvisService on _JarvisService, Store {
         refresh: refresh));
   }
 
+  late final _$getConversationHistoryAsyncAction =
+      AsyncAction('_JarvisService.getConversationHistory', context: context);
+
+  @override
+  Future<List<Message>?> getConversationHistory(
+      {required String conversationId, String assistantModel = 'dify'}) {
+    return _$getConversationHistoryAsyncAction.run(() => super
+        .getConversationHistory(
+            conversationId: conversationId, assistantModel: assistantModel));
+  }
+
   late final _$sendMessageAsyncAction =
       AsyncAction('_JarvisService.sendMessage', context: context);
 

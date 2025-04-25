@@ -65,7 +65,6 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
   void _scrollListener() {
     if (_scrollController.position.pixels ==
         _scrollController.position.maxScrollExtent) {
-      print('fwefnweoifwnfoiwenfow');
       widget.apiStore.jarvisService.loadMorePrompts();
     }
   }

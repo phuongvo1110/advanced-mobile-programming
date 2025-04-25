@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jarvis_ai/pages/login_page.dart';
 import 'package:jarvis_ai/services/jarvis_service.dart';
+import 'package:jarvis_ai/services/kb_service.dart';
 import 'package:mobx/mobx.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
@@ -12,6 +13,7 @@ abstract class _ApiStore with Store {
   late final ApiService apiService;
   late final AuthService authService;
   late final JarvisService jarvisService;
+  late final KBService kbService;
   late GlobalKey<NavigatorState> _navigatorKey;
   ApiStore get asApiStore => this as ApiStore;
 
@@ -30,29 +32,35 @@ abstract class _ApiStore with Store {
         onUnauthorized: _handleUnauthorized,
       ),
     );
+    kbService = KBService(
+      apiService: ApiService(
+        baseUrl: 'https://knowledge-api.dev.jarvis.cx',
+        onUnauthorized: _handleUnauthorized,
+      ),
+    );
   }
 
   Future<void> _handleUnauthorized() async {
-  try {
-    print('Handling unauthorized access');
-    // await const FlutterSecureStorage().delete(key: 'user');
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_navigatorKey.currentState == null) {
-        print('Navigator state is null - cannot navigate');
-        return;
-      }
-      
-      print('Navigating to login page');
-      _navigatorKey.currentState?.pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => LoginPage(apiStore: this as ApiStore),
-        ),
-        (route) => false,
-      );
-    });
-  } catch (e) {
-    print('Error in _handleUnauthorized: $e');
+    try {
+      print('Handling unauthorized access');
+      // await const FlutterSecureStorage().delete(key: 'user');
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_navigatorKey.currentState == null) {
+          print('Navigator state is null - cannot navigate');
+          return;
+        }
+
+        print('Navigating to login page');
+        _navigatorKey.currentState?.pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => LoginPage(apiStore: this as ApiStore),
+          ),
+          (route) => false,
+        );
+      });
+    } catch (e) {
+      print('Error in _handleUnauthorized: $e');
+    }
   }
-}
 }

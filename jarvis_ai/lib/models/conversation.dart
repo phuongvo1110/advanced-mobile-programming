@@ -1,26 +1,23 @@
 // assistant.dart
 class Assistant {
-  final Id? id;
-  final Model model;
+  final String? id;
+  final String model;
   final String name;
 
   Assistant({this.id, required this.model, required this.name});
 
   factory Assistant.fromJson(Map<String, dynamic> json) {
     return Assistant(
-      id: Id.values.firstWhere(
-      (e) => e.name.toLowerCase().replaceAll('_', '-') == json['id'],
-      orElse: () => throw ArgumentError('Invalid id: ${json['id']}'),
-    ),
-      model: Model.values.firstWhere((e) => e.toString() == 'Model.${json['model']}'),
+      id: json['id'],
+      model: json['model'],
       name: json['name'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id?.name.toLowerCase().replaceAll('_', '-'),
-      'model': model.toString().split('.').last,
+      'id': id,
+      'model': model,
       'name': name,
     };
   }
@@ -28,15 +25,15 @@ class Assistant {
 
 enum Model { 
   DIFY,
-  // Add other models as needed
+  KNOWLEDGE_BASE
 }
 enum Id {
     CLAUDE_3_HAIKU_20240307,
     CLAUDE_3_SONNET_20240229,
     GEMINI_15_FLASH_LATEST,
     GEMINI_15_PRO_LATEST,
-    GPT_4_O,
-    GPT_4_O_MINI
+    GPT_4O,
+    GPT_4O_MINI
 }
 // message.dart
 class Message {

@@ -45,7 +45,7 @@ abstract class _AuthService with Store {
       print('$response');
       currentUser = UserModel.fromJson(response);
       accessToken = currentUser?.accessToken;
-      tokenExpiryTime = DateTime.now().add(Duration(hours: 1));
+      tokenExpiryTime = DateTime.now().add(Duration(minutes: 10));
       print('Login successful! User ID: ${currentUser?.userId}');
       await _saveUserData();
       return true;
@@ -75,10 +75,10 @@ abstract class _AuthService with Store {
       currentUser = UserModel.fromJson(jsonDecode(userJson));
       accessToken = currentUser?.accessToken;
       tokenExpiryTime = DateTime.now().add(
-        Duration(hours: 1),
-      ); // Assuming token expiration
+        Duration(minutes: 10),
+      );
 
-      _startAutoRefresh(); // Start auto-refresh if token exists
+      _startAutoRefresh();
     }
   }
 
@@ -127,7 +127,7 @@ abstract class _AuthService with Store {
       print('Signup response: $response');
       currentUser = UserModel.fromJson(response);
       accessToken = currentUser?.accessToken;
-      tokenExpiryTime = DateTime.now().add(Duration(hours: 1));
+      tokenExpiryTime = DateTime.now().add(Duration(minutes: 10));
       await _saveUserData();
       return true;
     } on ApiException catch (e) {
