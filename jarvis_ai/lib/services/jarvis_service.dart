@@ -6,13 +6,26 @@ import 'package:http/http.dart' as http;
 import 'package:jarvis_ai/models/conversation.dart';
 import 'package:jarvis_ai/models/member.dart';
 import 'package:jarvis_ai/models/prompt.dart';
+import 'package:jarvis_ai/models/token.dart';
 import 'package:jarvis_ai/models/user.dart';
 import 'package:jarvis_ai/services/api_service.dart';
 import 'package:jarvis_ai/services/exceptions/api_exception.dart';
 import 'package:mobx/mobx.dart';
 
 part 'jarvis_service.g.dart';
+class MessageResponse {
+  final String? message;
+  final num? remainingUsage;
 
+  MessageResponse({this.message, this.remainingUsage});
+
+  factory MessageResponse.fromJson(Map<String, dynamic> json) {
+    return MessageResponse(
+      message: json['message'] as String?,
+      remainingUsage: json['remainingUsage'] as num,
+    );
+  }
+}
 class JarvisService = _JarvisService with _$JarvisService;
 
 abstract class _JarvisService with Store {
@@ -398,7 +411,7 @@ abstract class _JarvisService with Store {
   }
 
   @action
-  Future<String?> sendMessage({
+  Future<MessageResponse?> sendMessage({
     required String content,
     required Assistant assistant,
     List<String> files = const [],
@@ -424,7 +437,7 @@ abstract class _JarvisService with Store {
         },
         'assistant': assistant.toJson(),
       };
-      
+
       final data = await _apiService.post(
         '/api/v1/ai-chat/messages',
         headers: {
@@ -434,8 +447,7 @@ abstract class _JarvisService with Store {
         },
         body: requestBody,
       );
-      print('data $data');
-      return data['message'] ?? 'No response content';
+      return MessageResponse.fromJson(data);
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) rethrow;
       print('Error send message: $e');
@@ -447,5 +459,28 @@ abstract class _JarvisService with Store {
     String? userJson = await _secureStorage.read(key: 'user');
     if (userJson == null) return null;
     return UserModel.fromJson(jsonDecode(userJson));
+  }
+
+  @action
+  Future<Token?> getUsage() async {
+    try {
+      final user = await getUser();
+
+      final response = await _apiService.get(
+        '/api/v1/tokens/usage',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+      );
+      if (response == null) {
+        return null;
+      }
+      return Token.fromJson(response);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error send message: $e');
+    }
   }
 }

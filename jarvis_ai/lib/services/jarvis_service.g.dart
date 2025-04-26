@@ -256,7 +256,7 @@ mixin _$JarvisService on _JarvisService, Store {
       AsyncAction('_JarvisService.sendMessage', context: context);
 
   @override
-  Future<String?> sendMessage(
+  Future<MessageResponse?> sendMessage(
       {required String content,
       required Assistant assistant,
       List<String> files = const [],
@@ -274,6 +274,14 @@ mixin _$JarvisService on _JarvisService, Store {
   @override
   Future<UserModel?> getUser() {
     return _$getUserAsyncAction.run(() => super.getUser());
+  }
+
+  late final _$getUsageAsyncAction =
+      AsyncAction('_JarvisService.getUsage', context: context);
+
+  @override
+  Future<Token?> getUsage() {
+    return _$getUsageAsyncAction.run(() => super.getUsage());
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:jarvis_ai/models/conversation.dart';
+import 'package:jarvis_ai/models/token.dart';
 import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
@@ -89,6 +90,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
   AssistantOption? selectedAssistantOption;
   List<AssistantOption> assistantOptions = [];
   Assistant? currentAssistant;
+  Token? currentToken;
 
   @override
   void initState() {
@@ -96,8 +98,25 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
     _model = AIChatMessageModel();
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
-
+    loadUsage();
     _loadAssistants();
+  }
+
+  Future<void> loadUsage() async {
+    try {
+      final response = await widget.apiStore.jarvisService.getUsage();
+      setState(() {
+        currentToken = response;
+      });
+    } catch (e) {
+      print('Error loading usage: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load usage')));
+      setState(() {
+        currentToken = null;
+      });
+    }
   }
 
   Future<void> _loadAssistants() async {
@@ -259,10 +278,11 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
         assistant: currentAssistant!,
         conversationHistory: conversationHistory,
       );
+      if (response == null || response?.message == null) return;
       setState(() {
         final modelResponse = Message(
           assistant: currentAssistant!,
-          content: response ?? 'No response received',
+          content: response.message ?? 'No response received',
           role: 'model',
         );
         messages.add(modelResponse);
@@ -270,6 +290,11 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
           messages[messages.length - 2].toJson(),
           modelResponse.toJson(),
         ]);
+        if (currentToken != null && response.remainingUsage != null) {
+          currentToken = currentToken!.copyWith(
+            availableTokens: response.remainingUsage,
+          );
+        }
       });
     } catch (e) {
       setState(() {
@@ -460,6 +485,31 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                       child: Row(
                         mainAxisSize: MainAxisSize.max,
                         children: [
+                          Container(
+                            padding: const EdgeInsets.all(5.0),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.rectangle,
+                              color: Colors.grey,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.local_fire_department),
+                                Text(
+                                  currentToken?.availableTokens.toString() ??
+                                      '0',
+                                  style: JarvisTheme.of(
+                                    context,
+                                  ).bodyMedium.override(
+                                    fontFamily: 'Inter',
+                                    color: JarvisTheme.of(context).primaryText,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(width: 12.0),
                           Expanded(
                             child: TextFormField(
                               controller: _model.textController,
