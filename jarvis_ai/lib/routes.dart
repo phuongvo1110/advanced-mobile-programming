@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:jarvis_ai/pages/ai_bot_create.dart';
 import 'package:jarvis_ai/pages/ai_bots_managing.dart';
 import 'package:jarvis_ai/pages/ai_message_page.dart';
+import 'package:jarvis_ai/pages/ai_preview_page.dart';
 import 'package:jarvis_ai/pages/ai_subscribtion_page.dart';
 import 'package:jarvis_ai/pages/home_page.dart';
 import 'package:jarvis_ai/pages/login_page.dart';
@@ -63,6 +64,10 @@ class AppRoutes {
       case '/premium':
         return MaterialPageRoute(
           builder: (_) => const AISubscribtionPageWidget(),
+        );
+      case '/preview':
+        return MaterialPageRoute(
+          builder: (_) => PreviewpageWidget(apiStore: apiStore),
         );
       default:
         return MaterialPageRoute(builder: (_) => LoginPage(apiStore: apiStore));

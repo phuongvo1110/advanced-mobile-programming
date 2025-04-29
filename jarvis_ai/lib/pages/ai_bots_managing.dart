@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:jarvis_ai/components/assistant_card_widget.dart';
 import 'package:jarvis_ai/pages/ai_bot_create.dart';
+import 'package:jarvis_ai/pages/ai_preview_page.dart';
 import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/flutter_flow_model.dart';
 import 'package:jarvis_ai/theme/flutter_flow_theme.dart';
@@ -312,9 +313,9 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
                           context,
                           MaterialPageRoute(
                             builder: (context) {
-                              return AIBotCreatePageWidget(
+                              return PreviewpageWidget(
                                 apiStore: widget.apiStore,
-                                existingAssistantId: assistant.id,
+                                existingAssistant: assistant.id,
                               );
                             },
                           ),

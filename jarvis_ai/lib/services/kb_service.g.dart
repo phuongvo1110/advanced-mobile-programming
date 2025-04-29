@@ -25,6 +25,22 @@ mixin _$KBService on _KBService, Store {
     });
   }
 
+  late final _$isMessageLoadingAtom =
+      Atom(name: '_KBService.isMessageLoading', context: context);
+
+  @override
+  bool get isMessageLoading {
+    _$isMessageLoadingAtom.reportRead();
+    return super.isMessageLoading;
+  }
+
+  @override
+  set isMessageLoading(bool value) {
+    _$isMessageLoadingAtom.reportWrite(value, super.isMessageLoading, () {
+      super.isMessageLoading = value;
+    });
+  }
+
   late final _$hasMoreAssistantsAtom =
       Atom(name: '_KBService.hasMoreAssistants', context: context);
 
@@ -87,6 +103,122 @@ mixin _$KBService on _KBService, Store {
   set assistants(ObservableList<AssistantDetail> value) {
     _$assistantsAtom.reportWrite(value, super.assistants, () {
       super.assistants = value;
+    });
+  }
+
+  late final _$hasMoreKnowledgeBasesAtom =
+      Atom(name: '_KBService.hasMoreKnowledgeBases', context: context);
+
+  @override
+  bool get hasMoreKnowledgeBases {
+    _$hasMoreKnowledgeBasesAtom.reportRead();
+    return super.hasMoreKnowledgeBases;
+  }
+
+  @override
+  set hasMoreKnowledgeBases(bool value) {
+    _$hasMoreKnowledgeBasesAtom.reportWrite(value, super.hasMoreKnowledgeBases,
+        () {
+      super.hasMoreKnowledgeBases = value;
+    });
+  }
+
+  late final _$knowledgeBasePageAtom =
+      Atom(name: '_KBService.knowledgeBasePage', context: context);
+
+  @override
+  int get knowledgeBasePage {
+    _$knowledgeBasePageAtom.reportRead();
+    return super.knowledgeBasePage;
+  }
+
+  @override
+  set knowledgeBasePage(int value) {
+    _$knowledgeBasePageAtom.reportWrite(value, super.knowledgeBasePage, () {
+      super.knowledgeBasePage = value;
+    });
+  }
+
+  late final _$knowledgeBasesAtom =
+      Atom(name: '_KBService.knowledgeBases', context: context);
+
+  @override
+  ObservableList<KnowledgeBase> get knowledgeBases {
+    _$knowledgeBasesAtom.reportRead();
+    return super.knowledgeBases;
+  }
+
+  @override
+  set knowledgeBases(ObservableList<KnowledgeBase> value) {
+    _$knowledgeBasesAtom.reportWrite(value, super.knowledgeBases, () {
+      super.knowledgeBases = value;
+    });
+  }
+
+  late final _$messagesAtom =
+      Atom(name: '_KBService.messages', context: context);
+
+  @override
+  ObservableList<ThreadMessage> get messages {
+    _$messagesAtom.reportRead();
+    return super.messages;
+  }
+
+  @override
+  set messages(ObservableList<ThreadMessage> value) {
+    _$messagesAtom.reportWrite(value, super.messages, () {
+      super.messages = value;
+    });
+  }
+
+  late final _$globalKnowledgeBasesAtom =
+      Atom(name: '_KBService.globalKnowledgeBases', context: context);
+
+  @override
+  ObservableList<KnowledgeBase> get globalKnowledgeBases {
+    _$globalKnowledgeBasesAtom.reportRead();
+    return super.globalKnowledgeBases;
+  }
+
+  @override
+  set globalKnowledgeBases(ObservableList<KnowledgeBase> value) {
+    _$globalKnowledgeBasesAtom.reportWrite(value, super.globalKnowledgeBases,
+        () {
+      super.globalKnowledgeBases = value;
+    });
+  }
+
+  late final _$hasMoreGlobalKnowledgeBasesAtom =
+      Atom(name: '_KBService.hasMoreGlobalKnowledgeBases', context: context);
+
+  @override
+  bool get hasMoreGlobalKnowledgeBases {
+    _$hasMoreGlobalKnowledgeBasesAtom.reportRead();
+    return super.hasMoreGlobalKnowledgeBases;
+  }
+
+  @override
+  set hasMoreGlobalKnowledgeBases(bool value) {
+    _$hasMoreGlobalKnowledgeBasesAtom
+        .reportWrite(value, super.hasMoreGlobalKnowledgeBases, () {
+      super.hasMoreGlobalKnowledgeBases = value;
+    });
+  }
+
+  late final _$globalKnowledgeBasePageAtom =
+      Atom(name: '_KBService.globalKnowledgeBasePage', context: context);
+
+  @override
+  int get globalKnowledgeBasePage {
+    _$globalKnowledgeBasePageAtom.reportRead();
+    return super.globalKnowledgeBasePage;
+  }
+
+  @override
+  set globalKnowledgeBasePage(int value) {
+    _$globalKnowledgeBasePageAtom
+        .reportWrite(value, super.globalKnowledgeBasePage, () {
+      super.globalKnowledgeBasePage = value;
     });
   }
 
@@ -179,14 +311,146 @@ mixin _$KBService on _KBService, Store {
         .run(() => super.deleteAssistant(id: id));
   }
 
+  late final _$uploadFileCreateBotAsyncAction =
+      AsyncAction('_KBService.uploadFileCreateBot', context: context);
+
+  @override
+  Future<bool> uploadFileCreateBot(
+      {required String assistantName,
+      required String description,
+      required String instructions,
+      required List<PlatformFile> files}) {
+    return _$uploadFileCreateBotAsyncAction.run(() => super.uploadFileCreateBot(
+        assistantName: assistantName,
+        description: description,
+        instructions: instructions,
+        files: files));
+  }
+
+  late final _$getKnowledgeBasesAsyncAction =
+      AsyncAction('_KBService.getKnowledgeBases', context: context);
+
+  @override
+  Future<void> getKnowledgeBases(
+      {required String assistantId,
+      int limit = 5,
+      int offset = 0,
+      String? search = '',
+      String order = 'DESC',
+      String orderField = 'createdAt',
+      bool refresh = false}) {
+    return _$getKnowledgeBasesAsyncAction.run(() => super.getKnowledgeBases(
+        assistantId: assistantId,
+        limit: limit,
+        offset: offset,
+        search: search,
+        order: order,
+        orderField: orderField,
+        refresh: refresh));
+  }
+
+  late final _$loadMoreKnowledgeBasesAsyncAction =
+      AsyncAction('_KBService.loadMoreKnowledgeBases', context: context);
+
+  @override
+  Future<void> loadMoreKnowledgeBases({required String assistantId}) {
+    return _$loadMoreKnowledgeBasesAsyncAction
+        .run(() => super.loadMoreKnowledgeBases(assistantId: assistantId));
+  }
+
+  late final _$getThreadMessagesAsyncAction =
+      AsyncAction('_KBService.getThreadMessages', context: context);
+
+  @override
+  Future<void> getThreadMessages(
+      {required String threadId, bool refresh = false}) {
+    return _$getThreadMessagesAsyncAction.run(
+        () => super.getThreadMessages(threadId: threadId, refresh: refresh));
+  }
+
+  late final _$sendMessageAsyncAction =
+      AsyncAction('_KBService.sendMessage', context: context);
+
+  @override
+  Future<void> sendMessage(
+      {required String assistantId,
+      required String threadId,
+      required String message,
+      String additionalInstruction = ''}) {
+    return _$sendMessageAsyncAction.run(() => super.sendMessage(
+        assistantId: assistantId,
+        threadId: threadId,
+        message: message,
+        additionalInstruction: additionalInstruction));
+  }
+
+  late final _$getGlobalKnowledgeBasesAsyncAction =
+      AsyncAction('_KBService.getGlobalKnowledgeBases', context: context);
+
+  @override
+  Future<void> getGlobalKnowledgeBases(
+      {int limit = 20,
+      int offset = 0,
+      String? search = '',
+      String order = 'DESC',
+      String orderField = 'createdAt',
+      bool refresh = false}) {
+    return _$getGlobalKnowledgeBasesAsyncAction.run(() => super
+        .getGlobalKnowledgeBases(
+            limit: limit,
+            offset: offset,
+            search: search,
+            order: order,
+            orderField: orderField,
+            refresh: refresh));
+  }
+
+  late final _$loadMoreGlobalKnowledgeBasesAsyncAction =
+      AsyncAction('_KBService.loadMoreGlobalKnowledgeBases', context: context);
+
+  @override
+  Future<void> loadMoreGlobalKnowledgeBases() {
+    return _$loadMoreGlobalKnowledgeBasesAsyncAction
+        .run(() => super.loadMoreGlobalKnowledgeBases());
+  }
+
+  late final _$attachKnowledgeBaseAsyncAction =
+      AsyncAction('_KBService.attachKnowledgeBase', context: context);
+
+  @override
+  Future<bool> attachKnowledgeBase(
+      {required String assistantId, required String knowledgeId}) {
+    return _$attachKnowledgeBaseAsyncAction.run(() => super.attachKnowledgeBase(
+        assistantId: assistantId, knowledgeId: knowledgeId));
+  }
+
+  late final _$updateInstructionAssistantAsyncAction =
+      AsyncAction('_KBService.updateInstructionAssistant', context: context);
+
+  @override
+  Future<AssistantDetail?> updateInstructionAssistant(
+      {required String assistantId, required String instructions}) {
+    return _$updateInstructionAssistantAsyncAction.run(() => super
+        .updateInstructionAssistant(
+            assistantId: assistantId, instructions: instructions));
+  }
+
   @override
   String toString() {
     return '''
 isLoading: ${isLoading},
+isMessageLoading: ${isMessageLoading},
 hasMoreAssistants: ${hasMoreAssistants},
 assistantSearchQuery: ${assistantSearchQuery},
 currentPage: ${currentPage},
-assistants: ${assistants}
+assistants: ${assistants},
+hasMoreKnowledgeBases: ${hasMoreKnowledgeBases},
+knowledgeBasePage: ${knowledgeBasePage},
+knowledgeBases: ${knowledgeBases},
+messages: ${messages},
+globalKnowledgeBases: ${globalKnowledgeBases},
+hasMoreGlobalKnowledgeBases: ${hasMoreGlobalKnowledgeBases},
+globalKnowledgeBasePage: ${globalKnowledgeBasePage}
     ''';
   }
 }

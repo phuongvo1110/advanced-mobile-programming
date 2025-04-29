@@ -1,5 +1,8 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:jarvis_ai/models/assistant.dart';
+import 'package:jarvis_ai/pages/ai_preview_page.dart';
 import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/flutter_flow_model.dart';
 import 'package:jarvis_ai/theme/flutter_flow_theme.dart';
@@ -23,6 +26,7 @@ class AIBotCreatePageModel extends FlutterFlowModel<AIBotCreatePageWidget> {
   String? Function(String?)? instructionControllerValidator;
   String? dropDownValue;
   FormFieldController<String>? dropDownValueController;
+
   @override
   void dispose() {
     NameFieldFocusNode?.dispose();
@@ -41,6 +45,21 @@ class AIBotCreatePageModel extends FlutterFlowModel<AIBotCreatePageWidget> {
   String? descriptionError;
   @observable
   String? instructionError;
+  @observable
+  ObservableList<PlatformFile> selectedFiles = ObservableList<PlatformFile>();
+  @observable
+  String? fileError;
+  @action
+  @action
+  void addFiles(List<PlatformFile> files) {
+    selectedFiles.addAll(files);
+  }
+
+  @action
+  void removeFile(PlatformFile file) {
+    selectedFiles.remove(file);
+  }
+
   void validateName(String? value) {
     if (value == null || value.trim().isEmpty) {
       nameError = 'Title is required';
@@ -144,63 +163,135 @@ class _AIBotCreaePageWidgetState extends State<AIBotCreatePageWidget> {
     super.dispose();
   }
 
-  Future<void> _handleAssistant() async {
-  if (!_model.validateAll()) {
-    setState(() {});
-    return;
+  Future<void> _pickFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: [
+          'docx',
+          'pdf',
+          '.c',
+          '.cpp',
+          '.html',
+          '.java',
+          '.json',
+          '.md',
+          '.php',
+          '.pptx',
+          '.py',
+          '.rb',
+          '.tex',
+          '.txt',
+        ],
+        allowMultiple: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        final files = result.files;
+        files.forEach(
+          (file) => print(
+            'Picked file: name=${file.name}, path=${file.path}, bytes=${file.bytes?.length}, size=${file.size}',
+          ),
+        );
+        setState(() {
+          _model.addFiles(files);
+        });
+      } else {
+        print('No file picked');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to pick file: $e')));
+    }
   }
-  if (_isCreating) return;
-  
-  setState(() {
-    _isCreating = true;
-  });
 
-  try {
-    final name = _model.nameController?.text ?? '';
-    final instructions = _model.instructionController?.text ?? '';
-    final description = _model.descriptionController?.text ?? '';
+  Future<void> _handleAssistant() async {
+    if (!_model.validateAll()) {
+      setState(() {});
+      return;
+    }
+    if (_isCreating) return;
 
-    final assistant = widget.existingAssistantId == null
-        ? await widget.apiStore.kbService.createAssistant(
-            assistantName: name,
-            instructions: instructions,
-            description: description,
-          )
-        : await widget.apiStore.kbService.updateAssistant(
-            assistantId: widget.existingAssistantId!,
-            assistantName: name,
-            instructions: instructions,
-            description: description,
-          );
+    setState(() {
+      _isCreating = true;
+    });
 
-    if (assistant != null) {
+    try {
+      final name = _model.nameController?.text ?? '';
+      final instructions = _model.instructionController?.text ?? '';
+      final description = _model.descriptionController?.text ?? '';
+
+      final assistant =
+          widget.existingAssistantId == null
+              ? await widget.apiStore.kbService.createAssistant(
+                assistantName: name,
+                instructions: instructions,
+                description: description,
+              )
+              : await widget.apiStore.kbService.updateAssistant(
+                assistantId: widget.existingAssistantId!,
+                assistantName: name,
+                instructions: instructions,
+                description: description,
+              );
+
+      if (assistant != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.existingAssistantId == null
+                  ? 'AI Bot created successfully!'
+                  : '${assistant.assistantName} updated successfully!',
+            ),
+          ),
+        );
+      }
+      if (_model.selectedFiles.isNotEmpty) {
+        final responseUpload = await widget.apiStore.kbService
+            .uploadFileCreateBot(
+              assistantName: name,
+              description: description,
+              instructions: instructions,
+              files: _model.selectedFiles,
+            );
+        if (responseUpload == null) {
+          throw Exception('Failed to upload files');
+        }
+      }
+      if (widget.existingAssistantId == null) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) {
+              return PreviewpageWidget(
+                apiStore: widget.apiStore,
+                existingAssistant: assistant!.id,
+              );
+            },
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error in _handleAssistant: $e');
+      debugPrint(stackTrace.toString());
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(widget.existingAssistantId == null
-              ? 'AI Bot created successfully!'
-              : '${assistant.assistantName} updated successfully!'),
+          content: Text(
+            widget.existingAssistantId == null
+                ? 'Failed to create AI Bot: ${e.toString()}'
+                : 'Failed to update AI Bot: ${e.toString()}',
+          ),
         ),
       );
-      Navigator.pop(context, true);
-    }
-  } catch (e, stackTrace) {
-    debugPrint('Error in _handleAssistant: $e');
-    debugPrint(stackTrace.toString());
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(widget.existingAssistantId == null
-            ? 'Failed to create AI Bot: ${e.toString()}'
-            : 'Failed to update AI Bot: ${e.toString()}'),
-      ),
-    );
-  } finally {
-    if (mounted) {
-      setState(() {
-        _isCreating = false;
-      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreating = false;
+        });
+      }
     }
   }
-}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -501,119 +592,224 @@ class _AIBotCreaePageWidgetState extends State<AIBotCreatePageWidget> {
                         ),
                       ],
                     ),
-
-                    // Column(
-                    //   mainAxisSize: MainAxisSize.max,
-                    //   crossAxisAlignment: CrossAxisAlignment.start,
-                    //   children: [
-                    //     Text(
-                    //       'Knowledge Sources',
-                    //       style: JarvisTheme.of(context).titleMedium.override(
-                    //         fontFamily: 'Inter Tight',
-                    //         letterSpacing: 0.0,
-                    //         fontWeight: FontWeight.w600,
-                    //       ),
-                    //     ),
-                    //     SizedBox(height: 8.0),
-                    //     Padding(
-                    //       padding: EdgeInsets.all(16.0),
-                    //       child: Container(
-                    //         width: double.infinity,
-                    //         decoration: BoxDecoration(
-                    //           color:
-                    //               JarvisTheme.of(context).secondaryBackground,
-                    //           borderRadius: BorderRadius.circular(12.0),
-                    //           border: Border.all(
-                    //             color: JarvisTheme.of(context).alternate,
-                    //             width: 1.0,
-                    //           ),
-                    //         ),
-                    //         child: Padding(
-                    //           padding: EdgeInsets.all(16.0),
-                    //           child: Column(
-                    //             mainAxisSize: MainAxisSize.max,
-                    //             children: [
-                    //               Row(
-                    //                 mainAxisSize: MainAxisSize.max,
-                    //                 mainAxisAlignment:
-                    //                     MainAxisAlignment.spaceBetween,
-                    //                 children: [
-                    //                   Text(
-                    //                     'Upload documents',
-                    //                     style: JarvisTheme.of(
-                    //                       context,
-                    //                     ).bodyMedium.override(
-                    //                       fontFamily: 'Inter',
-                    //                       color:
-                    //                           JarvisTheme.of(
-                    //                             context,
-                    //                           ).primaryText,
-                    //                       letterSpacing: 0.0,
-                    //                     ),
-                    //                   ),
-                    //                   JarvisIconButton(
-                    //                     borderRadius: 20.0,
-                    //                     buttonSize: 40.0,
-                    //                     icon: Icon(
-                    //                       Icons.add_circle_outline_rounded,
-                    //                       color:
-                    //                           JarvisTheme.of(context).primary,
-                    //                       size: 24.0,
-                    //                     ),
-                    //                     onPressed: () {
-                    //                       print('IconButton pressed ...');
-                    //                     },
-                    //                   ),
-                    //                 ],
-                    //               ),
-                    //               SizedBox(height: 16.0),
-                    //               Divider(
-                    //                 height: 1.0,
-                    //                 thickness: 1.0,
-                    //                 color: JarvisTheme.of(context).alternate,
-                    //               ),
-                    //               SizedBox(height: 16.0),
-                    //               Row(
-                    //                 mainAxisSize: MainAxisSize.max,
-                    //                 children: [
-                    //                   Padding(
-                    //                     padding: EdgeInsetsDirectional.fromSTEB(
-                    //                       12.0,
-                    //                       0.0,
-                    //                       12.0,
-                    //                       0.0,
-                    //                     ),
-                    //                     child: Icon(
-                    //                       Icons.description_outlined,
-                    //                       color:
-                    //                           JarvisTheme.of(
-                    //                             context,
-                    //                           ).secondaryText,
-                    //                       size: 24.0,
-                    //                     ),
-                    //                   ),
-                    //                   Text(
-                    //                     'No documents uploaded yet',
-                    //                     style: JarvisTheme.of(
-                    //                       context,
-                    //                     ).bodyMedium.override(
-                    //                       fontFamily: 'Inter',
-                    //                       color:
-                    //                           JarvisTheme.of(
-                    //                             context,
-                    //                           ).secondaryText,
-                    //                       letterSpacing: 0.0,
-                    //                     ),
-                    //                   ),
-                    //                 ],
-                    //               ),
-                    //             ],
-                    //           ),
-                    //         ),
-                    //       ),
-                    //     ),
-                    //   ],
-                    // ),
+                    SizedBox(height: 24.0),
+                    Column(
+                      mainAxisSize: MainAxisSize.max,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Knowledge Sources',
+                          style: JarvisTheme.of(context).titleMedium.override(
+                            fontFamily: 'Inter Tight',
+                            letterSpacing: 0.0,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: 8.0),
+                        Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color:
+                                  JarvisTheme.of(context).secondaryBackground,
+                              borderRadius: BorderRadius.circular(12.0),
+                              border: Border.all(
+                                color: JarvisTheme.of(context).alternate,
+                                width: 1.0,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.max,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.max,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Upload documents',
+                                        style: JarvisTheme.of(
+                                          context,
+                                        ).bodyMedium.override(
+                                          fontFamily: 'Inter',
+                                          color:
+                                              JarvisTheme.of(
+                                                context,
+                                              ).primaryText,
+                                          letterSpacing: 0.0,
+                                        ),
+                                      ),
+                                      JarvisIconButton(
+                                        borderRadius: 20.0,
+                                        buttonSize: 40.0,
+                                        icon: Icon(
+                                          Icons.add_circle_outline_rounded,
+                                          color:
+                                              JarvisTheme.of(context).primary,
+                                          size: 24.0,
+                                        ),
+                                        onPressed: () {
+                                          _pickFile();
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 16.0),
+                                  Divider(
+                                    height: 1.0,
+                                    thickness: 1.0,
+                                    color: JarvisTheme.of(context).alternate,
+                                  ),
+                                  SizedBox(height: 16.0),
+                                  if (_model.fileError != null)
+                                    Padding(
+                                      padding: EdgeInsets.only(top: 8.0),
+                                      child: Text(
+                                        _model.fileError!,
+                                        style: JarvisTheme.of(
+                                          context,
+                                        ).bodySmall.copyWith(
+                                          color: JarvisTheme.of(context).error,
+                                        ),
+                                      ),
+                                    ),
+                                  SizedBox(height: 8.0),
+                                  Observer(
+                                    builder:
+                                        (_) =>
+                                            _model.selectedFiles.isEmpty
+                                                ? Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.max,
+                                                  children: [
+                                                    Padding(
+                                                      padding:
+                                                          EdgeInsetsDirectional.fromSTEB(
+                                                            12.0,
+                                                            0.0,
+                                                            12.0,
+                                                            0.0,
+                                                          ),
+                                                      child: Icon(
+                                                        Icons
+                                                            .description_outlined,
+                                                        color:
+                                                            JarvisTheme.of(
+                                                              context,
+                                                            ).secondaryText,
+                                                        size: 24.0,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      'No documents uploaded yet',
+                                                      style: JarvisTheme.of(
+                                                        context,
+                                                      ).bodyMedium.override(
+                                                        fontFamily: 'Inter',
+                                                        color:
+                                                            JarvisTheme.of(
+                                                              context,
+                                                            ).secondaryText,
+                                                        letterSpacing: 0.0,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                )
+                                                : Column(
+                                                  children:
+                                                      _model.selectedFiles.map((
+                                                        file,
+                                                      ) {
+                                                        return Padding(
+                                                          padding:
+                                                              EdgeInsets.symmetric(
+                                                                vertical: 8.0,
+                                                              ),
+                                                          child: Row(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .max,
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .spaceBetween,
+                                                            children: [
+                                                              Row(
+                                                                children: [
+                                                                  Padding(
+                                                                    padding:
+                                                                        EdgeInsetsDirectional.fromSTEB(
+                                                                          12.0,
+                                                                          0.0,
+                                                                          12.0,
+                                                                          0.0,
+                                                                        ),
+                                                                    child: Icon(
+                                                                      Icons
+                                                                          .description_outlined,
+                                                                      color:
+                                                                          JarvisTheme.of(
+                                                                            context,
+                                                                          ).primaryText,
+                                                                      size:
+                                                                          24.0,
+                                                                    ),
+                                                                  ),
+                                                                  Text(
+                                                                    file.name,
+                                                                    style: JarvisTheme.of(
+                                                                      context,
+                                                                    ).bodyMedium.override(
+                                                                      fontFamily:
+                                                                          'Inter',
+                                                                      color:
+                                                                          JarvisTheme.of(
+                                                                            context,
+                                                                          ).primaryText,
+                                                                      letterSpacing:
+                                                                          0.0,
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                              JarvisIconButton(
+                                                                borderRadius:
+                                                                    20.0,
+                                                                buttonSize:
+                                                                    40.0,
+                                                                icon: Icon(
+                                                                  Icons
+                                                                      .delete_outline,
+                                                                  color:
+                                                                      JarvisTheme.of(
+                                                                        context,
+                                                                      ).error,
+                                                                  size: 24.0,
+                                                                ),
+                                                                onPressed: () {
+                                                                  setState(() {
+                                                                    _model
+                                                                        .removeFile(
+                                                                          file,
+                                                                        );
+                                                                  });
+                                                                },
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        );
+                                                      }).toList(),
+                                                ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
                 Padding(

@@ -25,7 +25,7 @@ class ApiService {
         headers: {...?headers},
         body: json.encode(body),
       );
-      return _handleResponse(response);
+      return _handleResponse(response, endpoint);
     } catch (e) {
       if (e is ApiException) {
         rethrow; // Don't wrap ApiException again
@@ -51,7 +51,7 @@ class ApiService {
         headers: {...?headers},
         body: json.encode(body),
       );
-      return _handleResponse(response);
+      return _handleResponse(response, endpoint);
     } catch (e) {
       if (e is ApiException) {
         rethrow; // Don't wrap ApiException again
@@ -66,7 +66,7 @@ class ApiService {
         Uri.parse('$baseUrl$endpoint'),
         headers: {...?headers},
       );
-      return _handleResponse(response);
+      return _handleResponse(response, endpoint);
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException(e.toString(), 0, {'rawError': e.toString()});
@@ -84,7 +84,7 @@ class ApiService {
         headers: {'Content-Type': 'application/json', ...?headers},
         body: json.encode(body),
       );
-      return _handleResponse(response);
+      return _handleResponse(response, endpoint);
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException(e.toString(), 0, {'rawError': e.toString()});
@@ -102,16 +102,24 @@ class ApiService {
         headers: {'Content-Type': 'application/json', ...?headers},
         body: json.encode(body),
       );
-      return _handleResponse(response);
+      return _handleResponse(response, endpoint);
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException(e.toString(), 0, {'rawError': e.toString()});
     }
   }
 
-  dynamic _handleResponse(http.Response response) {
+  dynamic _handleResponse(http.Response response, String endpoint) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;
+      if (endpoint.endsWith('/ask')) {
+        try {
+          return json.decode(response.body);
+        } catch (e) {
+          print('Plain text response detected: ${response.body}');
+          return response.body;
+        }
+      }
       return json.decode(response.body);
     } else if (response.statusCode == 401) {
       _secureStorage.delete(key: 'user');

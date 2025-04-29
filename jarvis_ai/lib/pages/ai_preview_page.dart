@@ -1,0 +1,940 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:intl/intl.dart';
+import 'package:jarvis_ai/models/assistant.dart';
+import 'package:jarvis_ai/models/thread_message.dart';
+import 'package:jarvis_ai/stores/api_store.dart';
+import 'package:jarvis_ai/theme/flutter_flow_model.dart';
+import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
+import 'package:jarvis_ai/theme/jarvis_theme.dart';
+
+class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
+  FocusNode? textFieldFocusNode;
+  TextEditingController? textController;
+  String? Function(String?)? textControllerValidator;
+  ScrollController? knowledgeBaseScrollController;
+  ScrollController? chatScrollController;
+  ScrollController? drawerScrollController;
+
+  FocusNode? instructionFieldFocusNode;
+  TextEditingController? instructionController;
+  String? Function(String?)? instructionControllerValidator;
+
+  @override
+  void initState(BuildContext context) {
+    textControllerValidator = (value) {
+      if (value == null || value.isEmpty) {
+        return 'Please enter a message';
+      }
+      return null;
+    };
+    knowledgeBaseScrollController = ScrollController();
+    chatScrollController = ScrollController();
+    drawerScrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    textFieldFocusNode?.dispose();
+    textController?.dispose();
+    knowledgeBaseScrollController?.dispose();
+    chatScrollController?.dispose();
+    drawerScrollController?.dispose();
+    instructionFieldFocusNode?.dispose();
+    instructionController?.dispose();
+  }
+}
+
+class PreviewpageWidget extends StatefulWidget {
+  const PreviewpageWidget({
+    super.key,
+    required this.apiStore,
+    this.existingAssistant,
+  });
+
+  final ApiStore apiStore;
+  final String? existingAssistant;
+
+  @override
+  State<PreviewpageWidget> createState() => _PreviewpageWidgetState();
+}
+
+class _PreviewpageWidgetState extends State<PreviewpageWidget> {
+  late PreviewpageModel _model;
+  AssistantDetail? _assistant;
+
+  @override
+  void initState() {
+    super.initState();
+    _model = createModel(context, () => PreviewpageModel());
+    _model.textController ??= TextEditingController();
+    _model.textFieldFocusNode ??= FocusNode();
+    _model.instructionController ??= TextEditingController();
+    _model.instructionFieldFocusNode ??= FocusNode();
+    _fetchAssistant();
+    _fetchKnowledgeBases(refresh: true);
+    _fetchGlobalKnowledgeBases(refresh: true);
+    _model.knowledgeBaseScrollController?.addListener(() {
+      if (_model.knowledgeBaseScrollController!.position.pixels >=
+          _model.knowledgeBaseScrollController!.position.maxScrollExtent -
+              200) {
+        if (widget.apiStore.kbService.hasMoreKnowledgeBases &&
+            !widget.apiStore.kbService.isLoading &&
+            widget.existingAssistant != null) {
+          widget.apiStore.kbService.loadMoreKnowledgeBases(
+            assistantId: widget.existingAssistant!,
+          );
+        }
+      }
+    });
+    _model.drawerScrollController?.addListener(() {
+      if (_model.drawerScrollController!.position.pixels >=
+          _model.drawerScrollController!.position.maxScrollExtent - 200) {
+        if (widget.apiStore.kbService.hasMoreGlobalKnowledgeBases &&
+            !widget.apiStore.kbService.isLoading) {
+          widget.apiStore.kbService.loadMoreGlobalKnowledgeBases();
+        }
+      }
+    });
+  }
+
+  Future<void> _fetchAssistant() async {
+    if (widget.existingAssistant == null) {
+      print('Error: existingAssistant is null');
+      return;
+    }
+    try {
+      final assistant = await widget.apiStore.kbService.getAssistantById(
+        id: widget.existingAssistant!,
+      );
+      print('Assistant fetched: ${assistant!.toJson()}');
+      setState(() {
+        _assistant = assistant;
+        _model.instructionController!.text = assistant.instructions ?? '';
+      });
+      _fetchMessages(refresh: true);
+    } catch (e) {
+      print('Error fetching assistant: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load assistant: $e')));
+    }
+  }
+
+  Future<void> _handleUpdateAssistant() async {
+    try {
+      final instructions = _model.instructionController?.text ?? '';
+
+      final assistant = await widget.apiStore.kbService
+          .updateInstructionAssistant(
+            assistantId: widget.existingAssistant!,
+            instructions: instructions,
+          );
+
+      if (assistant != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${assistant.assistantName} updated successfully!'),
+          ),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error in _handleAssistant: $e');
+      debugPrint(stackTrace.toString());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update AI Bot: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _fetchKnowledgeBases({bool refresh = false}) async {
+    if (widget.existingAssistant == null) {
+      print('Error: existingAssistant is null');
+      return;
+    }
+    try {
+      await widget.apiStore.kbService.getKnowledgeBases(
+        assistantId: widget.existingAssistant!,
+        refresh: refresh,
+      );
+    } catch (e) {
+      print('Error fetching knowledge bases: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load knowledge bases: $e')),
+      );
+    }
+  }
+
+  Future<void> _fetchGlobalKnowledgeBases({bool refresh = false}) async {
+    try {
+      await widget.apiStore.kbService.getGlobalKnowledgeBases(refresh: refresh);
+    } catch (e) {
+      print('Error fetching global knowledge bases: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load global knowledge bases: $e')),
+      );
+    }
+  }
+
+  Future<void> _fetchMessages({bool refresh = false}) async {
+    if (_assistant == null || _assistant!.openAiThreadIdPlay == null) {
+      print('Error: threadId is null');
+      return;
+    }
+    try {
+      await widget.apiStore.kbService.getThreadMessages(
+        threadId: _assistant!.openAiThreadIdPlay!,
+        refresh: refresh,
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_model.chatScrollController != null &&
+            _model.chatScrollController!.hasClients) {
+          _model.chatScrollController!.jumpTo(
+            _model.chatScrollController!.position.maxScrollExtent,
+          );
+        }
+      });
+    } catch (e) {
+      print('Error fetching messages: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load messages: $e')));
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    if (_model.textController!.text.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter a message')));
+      return;
+    }
+    if (widget.existingAssistant == null ||
+        _assistant == null ||
+        _assistant!.openAiThreadIdPlay == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Assistant or thread ID is missing')),
+      );
+      return;
+    }
+    final message = _model.textController!.text;
+    _model.textController!.clear();
+    final userMessage = ThreadMessage(
+      role: 'user',
+      createdAt: (DateTime.now().millisecondsSinceEpoch ~/ 1000),
+      content: message,
+    );
+    widget.apiStore.kbService.messages.add(userMessage);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_model.chatScrollController != null &&
+          _model.chatScrollController!.hasClients) {
+        _model.chatScrollController!.jumpTo(
+          _model.chatScrollController!.position.maxScrollExtent,
+        );
+      }
+    });
+    try {
+      await widget.apiStore.kbService.sendMessage(
+        assistantId: widget.existingAssistant!,
+        threadId: _assistant!.openAiThreadIdPlay!,
+        message: message,
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_model.chatScrollController != null &&
+            _model.chatScrollController!.hasClients) {
+          _model.chatScrollController!.jumpTo(
+            _model.chatScrollController!.position.maxScrollExtent,
+          );
+        }
+      });
+    } catch (e) {
+      print('Error sending message: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
+    }
+  }
+
+  Future<void> _attachKnowledgeBase(String knowledgeId) async {
+    if (widget.existingAssistant == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Assistant ID is missing')));
+      return;
+    }
+    try {
+      final success = await widget.apiStore.kbService.attachKnowledgeBase(
+        assistantId: widget.existingAssistant!,
+        knowledgeId: knowledgeId,
+      );
+      if (success) {
+        await widget.apiStore.kbService.getKnowledgeBases(
+          assistantId: widget.existingAssistant!,
+          refresh: true,
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Knowledge base attached successfully')),
+        );
+        Navigator.pop(context); // Close the Drawer
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to attach knowledge base')),
+        );
+      }
+    } catch (e) {
+      print('Error attaching knowledge base: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error attaching knowledge base: $e')),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _model.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = JarvisTheme.of(context);
+    return GestureDetector(
+      onTap: () {
+        FocusScope.of(context).unfocus();
+        FocusManager.instance.primaryFocus?.unfocus();
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        backgroundColor: theme.primaryBackground,
+        endDrawer: Drawer(
+          width: 300,
+          backgroundColor: theme.secondaryBackground,
+          child: Observer(
+            builder: (context) {
+              final kbService = widget.apiStore.kbService;
+              if (kbService.isLoading &&
+                  kbService.globalKnowledgeBases.isEmpty) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (kbService.globalKnowledgeBases.isEmpty) {
+                return const Center(child: Text('No knowledge bases found'));
+              }
+              return SingleChildScrollView(
+                controller: _model.drawerScrollController,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'Available Knowledge Bases',
+                        style: theme.titleMedium,
+                      ),
+                    ),
+                    ...kbService.globalKnowledgeBases.map(
+                      (kb) => Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: theme.primaryBackground,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: theme.alternate,
+                              width: 1,
+                            ),
+                          ),
+                          child: ListTile(
+                            title: Text(
+                              kb.knowledgeName ?? 'Untitled',
+                              style: theme.bodyLarge,
+                            ),
+                            subtitle: Text(
+                              'Last updated: ${DateFormat('MMM d, yyyy').format(DateTime.parse(kb.updatedAt ?? DateTime.now().toIso8601String()))}',
+                              style: theme.bodySmall.copyWith(
+                                color: theme.secondaryText,
+                              ),
+                            ),
+                            trailing: IconButton(
+                              icon: Icon(Icons.add, color: theme.primary),
+                              onPressed:
+                                  () => _attachKnowledgeBase(kb.id as String),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (kbService.isLoading)
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        body: Column(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            AppBar(
+              backgroundColor: theme.secondaryBackground,
+              automaticallyImplyLeading: false,
+              leading: JarvisIconButton(
+                borderColor: Colors.transparent,
+                borderRadius: 20,
+                buttonSize: 40,
+                icon: Icon(
+                  Icons.arrow_back_rounded,
+                  color: theme.primaryText,
+                  size: 24,
+                ),
+                onPressed: () {
+                  debugPrint('Back button pressed');
+                  Navigator.pop(context);
+                },
+              ),
+              title: Text('AI Assistant', style: theme.titleLarge),
+              actions: [
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 0),
+                  child: JarvisIconButton(
+                    borderRadius: 20,
+                    buttonSize: 40,
+                    icon: Icon(
+                      Icons.settings,
+                      color: theme.primaryText,
+                      size: 24,
+                    ),
+                    onPressed: () {
+                      debugPrint('Settings button pressed');
+                    },
+                  ),
+                ),
+              ],
+              centerTitle: true,
+              elevation: 0,
+            ),
+            Container(
+              width: double.infinity,
+              height: 0.5,
+              decoration: BoxDecoration(color: theme.alternate),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisSize: MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Knowledge Base', style: theme.titleMedium),
+                  Builder(
+                    builder:
+                        (context) => JarvisIconButton(
+                          borderRadius: 20,
+                          buttonSize: 40,
+                          fillColor: theme.primary,
+                          icon: Icon(Icons.add, color: theme.info, size: 24),
+                          onPressed: () {
+                            debugPrint('Add knowledge base button pressed');
+                            Scaffold.of(context).openEndDrawer();
+                          },
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            Observer(
+              builder: (context) {
+                final kbService = widget.apiStore.kbService;
+                if (kbService.isLoading && kbService.knowledgeBases.isEmpty) {
+                  return const SizedBox(
+                    height: 100,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (kbService.knowledgeBases.isEmpty) {
+                  return const SizedBox(
+                    height: 100,
+                    child: Center(child: Text('No knowledge bases found')),
+                  );
+                }
+                return SizedBox(
+                  height: 150,
+                  child: SingleChildScrollView(
+                    controller: _model.knowledgeBaseScrollController,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ...kbService.knowledgeBases.map(
+                          (kb) => Padding(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
+                              16,
+                              12,
+                              16,
+                              12,
+                            ),
+                            child: Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: theme.secondaryBackground,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: theme.alternate,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.max,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.max,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            kb.knowledgeName ?? 'Untitled',
+                                            style: theme.bodyLarge,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          Padding(
+                                            padding:
+                                                const EdgeInsetsDirectional.fromSTEB(
+                                                  0,
+                                                  4,
+                                                  0,
+                                                  0,
+                                                ),
+                                            child: Text(
+                                              'Last updated: ${DateFormat('MMM d, yyyy').format(DateTime.parse(kb.updatedAt ?? DateTime.now().toIso8601String()))}',
+                                              style: theme.bodySmall.copyWith(
+                                                color: theme.secondaryText,
+                                                letterSpacing: 0.0,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    JarvisIconButton(
+                                      borderRadius: 20,
+                                      buttonSize: 40,
+                                      icon: Icon(
+                                        Icons.edit,
+                                        color: theme.primaryText,
+                                        size: 24,
+                                      ),
+                                      onPressed: () {},
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (kbService.isLoading)
+                          const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            Divider(
+              height: 24,
+              thickness: 1,
+              indent: 16,
+              endIndent: 16,
+              color: theme.alternate,
+            ),
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Bot Instructions',
+                    style: theme.titleMedium.override(
+                      fontFamily: theme.titleMediumFamily,
+                      letterSpacing: 0.0,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  JarvisIconButton(
+                    borderRadius: 20,
+                    buttonSize: 40,
+                    fillColor: theme.primary,
+                    icon: Icon(Icons.edit, color: theme.info, size: 24),
+                    onPressed: () {
+                      print('fefwf');
+                      _handleUpdateAssistant();
+                    },
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 0),
+              child: Container(
+                width: double.infinity,
+                child: TextFormField(
+                  controller: _model.instructionController,
+                  focusNode: _model.instructionFieldFocusNode,
+                  autofocus: false,
+                  obscureText: false,
+                  decoration: InputDecoration(
+                    hintText: 'Write instruction for your Bot',
+                    errorStyle: JarvisTheme.of(
+                      context,
+                    ).bodySmall.copyWith(color: JarvisTheme.of(context).error),
+                    hintStyle: JarvisTheme.of(context).bodyMedium.override(
+                      fontFamily: 'Inter',
+                      color: JarvisTheme.of(context).secondaryText,
+                      letterSpacing: 0.0,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: JarvisTheme.of(context).alternate,
+                        width: 1.0,
+                      ),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: JarvisTheme.of(context).primary,
+                        width: 1.0,
+                      ),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Color(0x00000000),
+                        width: 1.0,
+                      ),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Color(0x00000000),
+                        width: 1.0,
+                      ),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    filled: true,
+                    fillColor: JarvisTheme.of(context).secondaryBackground,
+                  ),
+                  style: JarvisTheme.of(context).bodyMedium.override(
+                    fontFamily: 'Inter',
+                    letterSpacing: 0.0,
+                  ),
+                  maxLines: 5,
+                  keyboardType: TextInputType.multiline,
+                  cursorColor: JarvisTheme.of(context).primary,
+                  validator: _model.instructionControllerValidator,
+                ),
+              ),
+            ),
+            Divider(
+              height: 24,
+              thickness: 1,
+              indent: 16,
+              endIndent: 16,
+              color: theme.alternate,
+            ),
+            Expanded(
+              child: Observer(
+                builder: (context) {
+                  final kbService = widget.apiStore.kbService;
+                  if (kbService.isLoading && kbService.messages.isEmpty) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (kbService.messages.isEmpty) {
+                    return const Center(child: Text('No messages found'));
+                  }
+                  return SingleChildScrollView(
+                    controller: _model.chatScrollController,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.max,
+                      children:
+                          kbService.messages.map((message) {
+                            final isAssistant = message.role == 'assistant';
+                            final timestamp =
+                                DateTime.fromMillisecondsSinceEpoch(
+                                  message.createdAt * 1000,
+                                );
+                            return Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color:
+                                      isAssistant
+                                          ? theme.secondaryBackground
+                                          : theme.accent1,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color:
+                                        isAssistant
+                                            ? theme.alternate
+                                            : theme.primary,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.max,
+                                    mainAxisAlignment:
+                                        isAssistant
+                                            ? MainAxisAlignment.start
+                                            : MainAxisAlignment.end,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (isAssistant) ...[
+                                        Container(
+                                          width: 40,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color: theme.primary,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Align(
+                                            alignment:
+                                                const AlignmentDirectional(
+                                                  0,
+                                                  0,
+                                                ),
+                                            child: Icon(
+                                              Icons.smart_toy_rounded,
+                                              color: theme.info,
+                                              size: 24,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                      ],
+                                      Flexible(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.max,
+                                          crossAxisAlignment:
+                                              isAssistant
+                                                  ? CrossAxisAlignment.start
+                                                  : CrossAxisAlignment.end,
+                                          children: [
+                                            Text(
+                                              message.content,
+                                              style: theme.bodyMedium.override(
+                                                fontFamily:
+                                                    theme.bodyMediumFamily,
+                                                color: theme.primaryText,
+                                                letterSpacing: 0.0,
+                                                fontWeight:
+                                                    theme.bodyMedium.fontWeight,
+                                                fontStyle:
+                                                    theme.bodyMedium.fontStyle,
+                                              ),
+                                              softWrap: true,
+                                              overflow: TextOverflow.clip,
+                                            ),
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsetsDirectional.fromSTEB(
+                                                    0,
+                                                    4,
+                                                    0,
+                                                    0,
+                                                  ),
+                                              child: Text(
+                                                DateFormat(
+                                                  'hh:mm a',
+                                                ).format(timestamp),
+                                                style: theme.bodySmall.override(
+                                                  fontFamily:
+                                                      theme.bodySmallFamily,
+                                                  color: theme.secondaryText,
+                                                  letterSpacing: 0.0,
+                                                  fontWeight:
+                                                      theme
+                                                          .bodySmall
+                                                          .fontWeight,
+                                                  fontStyle:
+                                                      theme.bodySmall.fontStyle,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (!isAssistant) ...[
+                                        const SizedBox(width: 12),
+                                        Container(
+                                          width: 40,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color: theme.secondaryBackground,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: theme.primary,
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: Align(
+                                            alignment:
+                                                const AlignmentDirectional(
+                                                  0,
+                                                  0,
+                                                ),
+                                            child: Icon(
+                                              Icons.person,
+                                              color: theme.primaryText,
+                                              size: 24,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Container(
+              width: double.infinity,
+              height: 0.5,
+              decoration: BoxDecoration(color: theme.alternate),
+            ),
+            SafeArea(
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: theme.secondaryBackground,
+                  border: Border.all(color: theme.alternate, width: 1),
+                ),
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.max,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _model.textController,
+                          focusNode: _model.textFieldFocusNode,
+                          autofocus: false,
+                          textCapitalization: TextCapitalization.sentences,
+                          obscureText: false,
+                          decoration: InputDecoration(
+                            hintText: 'Type your message...',
+                            hintStyle: theme.labelMedium.override(
+                              fontFamily: theme.labelMediumFamily,
+                              color: theme.secondaryText,
+                              letterSpacing: 0.0,
+                              fontWeight: theme.labelMedium.fontWeight,
+                              fontStyle: theme.labelMedium.fontStyle,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: theme.alternate,
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Color(0x00000000),
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Color(0x00000000),
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Color(0x00000000),
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            filled: true,
+                            fillColor: theme.primaryBackground,
+                            contentPadding:
+                                const EdgeInsetsDirectional.fromSTEB(
+                                  16,
+                                  12,
+                                  16,
+                                  12,
+                                ),
+                          ),
+                          style: theme.bodyMedium.override(
+                            fontFamily: theme.bodyMediumFamily,
+                            color: theme.primaryText,
+                            letterSpacing: 0.0,
+                            fontWeight: theme.bodyMedium.fontWeight,
+                            fontStyle: theme.bodyMedium.fontStyle,
+                          ),
+                          maxLines: 3,
+                          minLines: 1,
+                          cursorColor: theme.primary,
+                          validator: _model.textControllerValidator,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Observer(
+                        builder: (context) {
+                          final kbService = widget.apiStore.kbService;
+                          return JarvisIconButton(
+                            borderRadius: 24,
+                            buttonSize: 48,
+                            fillColor:
+                                kbService.isMessageLoading
+                                    ? Colors.grey
+                                    : theme.secondary,
+                            icon: Icon(
+                              kbService.isMessageLoading
+                                  ? Icons.hourglass_empty
+                                  : Icons.send_rounded,
+                              color: theme.info,
+                              size: 24,
+                            ),
+                            onPressed:
+                                kbService.isMessageLoading
+                                    ? null
+                                    : _sendMessage,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
