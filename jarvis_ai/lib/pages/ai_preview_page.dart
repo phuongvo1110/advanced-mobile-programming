@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:intl/intl.dart';
 import 'package:jarvis_ai/models/assistant.dart';
+import 'package:jarvis_ai/models/prompt.dart';
 import 'package:jarvis_ai/models/thread_message.dart';
+import 'package:jarvis_ai/pages/ai_bot_create.dart';
 import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/flutter_flow_model.dart';
 import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
@@ -20,6 +22,9 @@ class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
   TextEditingController? instructionController;
   String? Function(String?)? instructionControllerValidator;
 
+  ScrollController? promptScrollController;
+  OverlayEntry? promptOverlayEntry;
+  bool isPromptDropdownVisible = false;
   @override
   void initState(BuildContext context) {
     textControllerValidator = (value) {
@@ -31,6 +36,7 @@ class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
     knowledgeBaseScrollController = ScrollController();
     chatScrollController = ScrollController();
     drawerScrollController = ScrollController();
+    promptScrollController = ScrollController();
   }
 
   @override
@@ -42,6 +48,9 @@ class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
     drawerScrollController?.dispose();
     instructionFieldFocusNode?.dispose();
     instructionController?.dispose();
+    promptScrollController?.dispose();
+    promptOverlayEntry?.remove();
+    promptOverlayEntry = null;
   }
 }
 
@@ -62,6 +71,7 @@ class PreviewpageWidget extends StatefulWidget {
 class _PreviewpageWidgetState extends State<PreviewpageWidget> {
   late PreviewpageModel _model;
   AssistantDetail? _assistant;
+  GlobalKey textFieldKey = GlobalKey();
 
   @override
   void initState() {
@@ -71,9 +81,12 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     _model.textFieldFocusNode ??= FocusNode();
     _model.instructionController ??= TextEditingController();
     _model.instructionFieldFocusNode ??= FocusNode();
+    _model.textController!.addListener(_handleTextChange);
+
     _fetchAssistant();
     _fetchKnowledgeBases(refresh: true);
     _fetchGlobalKnowledgeBases(refresh: true);
+    _loadPrompts(refresh: true);
     _model.knowledgeBaseScrollController?.addListener(() {
       if (_model.knowledgeBaseScrollController!.position.pixels >=
           _model.knowledgeBaseScrollController!.position.maxScrollExtent -
@@ -87,6 +100,15 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
         }
       }
     });
+    _model.promptScrollController?.addListener(() {
+      if (_model.promptScrollController!.position.pixels >=
+          _model.promptScrollController!.position.maxScrollExtent - 50) {
+        if (widget.apiStore.jarvisService.hasMorePrompts &&
+            !widget.apiStore.jarvisService.isLoading) {
+          widget.apiStore.jarvisService.loadMorePrompts();
+        }
+      }
+    });
     _model.drawerScrollController?.addListener(() {
       if (_model.drawerScrollController!.position.pixels >=
           _model.drawerScrollController!.position.maxScrollExtent - 200) {
@@ -96,6 +118,331 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
         }
       }
     });
+  }
+
+  Future<void> _loadPrompts({bool refresh = false}) async {
+    try {
+      await widget.apiStore.jarvisService.getPrompts(
+        refresh: refresh,
+        search: '',
+        isPublic: null,
+        isFavorite: null,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load prompts: ${e.toString()}')),
+      );
+    }
+  }
+
+  void _handleTextChange() {
+    final text = _model.textController!.text;
+    if (text.startsWith('/')) {
+      if (!_model.isPromptDropdownVisible) {
+        _showPromptDropdown();
+        // widget.apiStore.jarvisService.getPrompts(refresh: true);
+      }
+    } else {
+      if (_model.isPromptDropdownVisible) {
+        _hidePromptDropdown();
+      }
+    }
+  }
+
+  void _showPromptDropdown() {
+    if (_model.promptOverlayEntry != null) return;
+
+    final RenderBox? renderBox =
+        textFieldKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    _model.promptOverlayEntry = OverlayEntry(
+      builder:
+          (context) => Positioned(
+            left: position.dx,
+            top: position.dy - 250, // Position above the text field
+            width: size.width,
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                height: 250,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300, width: 1),
+                ),
+                child: Observer(
+                  builder: (context) {
+                    final jarvisService = widget.apiStore.jarvisService;
+                    return Column(
+                      children: [
+                        Expanded(
+                          child: ListView.builder(
+                            controller: _model.promptScrollController,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            itemCount: jarvisService.prompts.length + 1,
+                            itemBuilder: (context, index) {
+                              if (index < jarvisService.prompts.length) {
+                                final prompt = jarvisService.prompts[index];
+                                return ListTile(
+                                  title: Text(
+                                    prompt.title ?? 'Untitled',
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  onTap: () {
+                                    // _model.textController!.text =
+                                    //     prompt.content ?? '';
+                                    // _model
+                                    //     .textController!
+                                    //     .selection = TextSelection.fromPosition(
+                                    //   TextPosition(
+                                    //     offset:
+                                    //         _model.textController!.text.length,
+                                    //   ),
+                                    // );
+                                    _hidePromptDropdown();
+                                    _showPromptDialog(prompt);
+                                  },
+                                );
+                              } else if (jarvisService.isLoading) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(8.0),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              } else {
+                                return const SizedBox.shrink();
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+    );
+
+    Overlay.of(context).insert(_model.promptOverlayEntry!);
+    setState(() {
+      _model.isPromptDropdownVisible = true;
+    });
+  }
+
+  void _hidePromptDropdown() {
+    _model.promptOverlayEntry?.remove();
+    _model.promptOverlayEntry = null;
+    setState(() {
+      _model.isPromptDropdownVisible = false;
+    });
+  }
+
+  void _showPromptDialog(Prompt prompt) {
+    final TextEditingController userInputController = TextEditingController();
+    final theme = JarvisTheme.of(context);
+    String selectedLanguage = 'Auto';
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  prompt.title ?? 'Untitled Prompt',
+                  style: theme.titleMedium,
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.star_border, size: 24),
+                      onPressed: () {
+                        // Handle favorite action
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 24),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Prompt',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(prompt.content ?? '', style: theme.bodyMedium),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Output Language',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: 'Auto',
+                    items:
+                        ['Auto', 'English', 'Spanish', 'French']
+                            .map(
+                              (lang) => DropdownMenuItem(
+                                value: lang,
+                                child: Text(lang),
+                              ),
+                            )
+                            .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedLanguage = value!;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Text',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: userInputController,
+                    maxLines: 5,
+                    decoration: InputDecoration(
+                      hintText: 'Enter your text here...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.all(12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  _sendMessageWithPrompt(
+                    promptContent: prompt.content ?? '',
+                    userInput: userInputController.text,
+                    language: selectedLanguage
+                  );
+                  Navigator.of(context).pop();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Send'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _sendMessageWithPrompt({
+    required String promptContent,
+    required String userInput,
+    required String language,
+  }) async {
+    if (widget.existingAssistant == null ||
+        _assistant == null ||
+        _assistant!.openAiThreadIdPlay == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Assistant or thread ID is missing')),
+      );
+      return;
+    }
+
+    String modifiedPrompt = promptContent;
+    final RegExp placeholderPattern = RegExp(r'\[([^\]]*)\]');
+
+    if (userInput.isNotEmpty) {
+      if (placeholderPattern.hasMatch(promptContent)) {
+        modifiedPrompt = promptContent.replaceAllMapped(
+          placeholderPattern,
+          (Match match) => userInput,
+        );
+        if (language != 'Auto') {
+          modifiedPrompt = '$modifiedPrompt\n Response in language: $language';
+        }
+      } else {
+        if (language != 'Auto') {
+          modifiedPrompt = '$modifiedPrompt\n User Input: $userInput \n Response in language: $language';
+        } else {
+          modifiedPrompt = '$modifiedPrompt\n User Input: $userInput';
+        }
+      }
+    }
+    final message = modifiedPrompt;
+    final userMessage = ThreadMessage(
+      role: 'user',
+      createdAt: (DateTime.now().millisecondsSinceEpoch ~/ 1000),
+      content: message,
+    );
+    widget.apiStore.kbService.messages.add(userMessage);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_model.chatScrollController != null &&
+          _model.chatScrollController!.hasClients) {
+        _model.chatScrollController!.jumpTo(
+          _model.chatScrollController!.position.maxScrollExtent,
+        );
+      }
+    });
+
+    try {
+      await widget.apiStore.kbService.sendMessage(
+        assistantId: widget.existingAssistant!,
+        threadId: _assistant!.openAiThreadIdPlay!,
+        message: message,
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_model.chatScrollController != null &&
+            _model.chatScrollController!.hasClients) {
+          _model.chatScrollController!.jumpTo(
+            _model.chatScrollController!.position.maxScrollExtent,
+          );
+        }
+      });
+    } catch (e) {
+      print('Error sending message with prompt: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
+    }
   }
 
   Future<void> _fetchAssistant() async {
@@ -123,12 +470,13 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
 
   Future<void> _handleUpdateAssistant() async {
     try {
+      if (_assistant == null) return;
       final instructions = _model.instructionController?.text ?? '';
-
       final assistant = await widget.apiStore.kbService
           .updateInstructionAssistant(
             assistantId: widget.existingAssistant!,
             instructions: instructions,
+            assistantName: _assistant?.assistantName as String,
           );
 
       if (assistant != null) {
@@ -137,7 +485,6 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
             content: Text('${assistant.assistantName} updated successfully!'),
           ),
         );
-        Navigator.pop(context, true);
       }
     } catch (e, stackTrace) {
       debugPrint('Error in _handleAssistant: $e');
@@ -292,6 +639,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
 
   @override
   void dispose() {
+    _model.textController!.removeListener(_handleTextChange);
     _model.dispose();
     super.dispose();
   }
@@ -398,7 +746,38 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                   Navigator.pop(context);
                 },
               ),
-              title: Text('AI Assistant', style: theme.titleLarge),
+              title: Row(
+                mainAxisSize: MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _assistant?.assistantName ?? 'AI Assistant',
+                    style: theme.titleLarge,
+                  ),
+                  JarvisIconButton(
+                    borderRadius: 20,
+                    buttonSize: 40,
+                    icon: Icon(Icons.edit, color: theme.primaryText, size: 24),
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) {
+                            return AIBotCreatePageWidget(
+                              apiStore: widget.apiStore,
+                              existingAssistantId: _assistant!.id,
+                            );
+                          },
+                        ),
+                      );
+                      // If result is true, refresh assistants
+                      if (result == true) {
+                        await _fetchAssistant();
+                      }
+                    },
+                  ),
+                ],
+              ),
               actions: [
                 Padding(
                   padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 0),
@@ -831,103 +1210,106 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                 ),
                 child: Padding(
                   padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 8),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.max,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _model.textController,
-                          focusNode: _model.textFieldFocusNode,
-                          autofocus: false,
-                          textCapitalization: TextCapitalization.sentences,
-                          obscureText: false,
-                          decoration: InputDecoration(
-                            hintText: 'Type your message...',
-                            hintStyle: theme.labelMedium.override(
-                              fontFamily: theme.labelMediumFamily,
-                              color: theme.secondaryText,
-                              letterSpacing: 0.0,
-                              fontWeight: theme.labelMedium.fontWeight,
-                              fontStyle: theme.labelMedium.fontStyle,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: theme.alternate,
-                                width: 1,
+                  child: IntrinsicHeight(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.max,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            key: textFieldKey,
+                            controller: _model.textController,
+                            focusNode: _model.textFieldFocusNode,
+                            autofocus: false,
+                            textCapitalization: TextCapitalization.sentences,
+                            obscureText: false,
+                            decoration: InputDecoration(
+                              hintText: 'Type your message...',
+                              hintStyle: theme.labelMedium.override(
+                                fontFamily: theme.labelMediumFamily,
+                                color: theme.secondaryText,
+                                letterSpacing: 0.0,
+                                fontWeight: theme.labelMedium.fontWeight,
+                                fontStyle: theme.labelMedium.fontStyle,
                               ),
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: Color(0x00000000),
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: Color(0x00000000),
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            focusedErrorBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: Color(0x00000000),
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            filled: true,
-                            fillColor: theme.primaryBackground,
-                            contentPadding:
-                                const EdgeInsetsDirectional.fromSTEB(
-                                  16,
-                                  12,
-                                  16,
-                                  12,
+                              enabledBorder: OutlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: theme.alternate,
+                                  width: 1,
                                 ),
-                          ),
-                          style: theme.bodyMedium.override(
-                            fontFamily: theme.bodyMediumFamily,
-                            color: theme.primaryText,
-                            letterSpacing: 0.0,
-                            fontWeight: theme.bodyMedium.fontWeight,
-                            fontStyle: theme.bodyMedium.fontStyle,
-                          ),
-                          maxLines: 3,
-                          minLines: 1,
-                          cursorColor: theme.primary,
-                          validator: _model.textControllerValidator,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Observer(
-                        builder: (context) {
-                          final kbService = widget.apiStore.kbService;
-                          return JarvisIconButton(
-                            borderRadius: 24,
-                            buttonSize: 48,
-                            fillColor:
-                                kbService.isMessageLoading
-                                    ? Colors.grey
-                                    : theme.secondary,
-                            icon: Icon(
-                              kbService.isMessageLoading
-                                  ? Icons.hourglass_empty
-                                  : Icons.send_rounded,
-                              color: theme.info,
-                              size: 24,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Color(0x00000000),
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Color(0x00000000),
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              focusedErrorBorder: OutlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Color(0x00000000),
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              filled: true,
+                              fillColor: theme.primaryBackground,
+                              contentPadding:
+                                  const EdgeInsetsDirectional.fromSTEB(
+                                    16,
+                                    12,
+                                    16,
+                                    12,
+                                  ),
                             ),
-                            onPressed:
+                            style: theme.bodyMedium.override(
+                              fontFamily: theme.bodyMediumFamily,
+                              color: theme.primaryText,
+                              letterSpacing: 0.0,
+                              fontWeight: theme.bodyMedium.fontWeight,
+                              fontStyle: theme.bodyMedium.fontStyle,
+                            ),
+                            maxLines: null, // Allow dynamic growth
+                            keyboardType: TextInputType.multiline,
+                            cursorColor: theme.primary,
+                            validator: _model.textControllerValidator,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Observer(
+                          builder: (context) {
+                            final kbService = widget.apiStore.kbService;
+                            return JarvisIconButton(
+                              borderRadius: 24,
+                              buttonSize: 48,
+                              fillColor:
+                                  kbService.isMessageLoading
+                                      ? Colors.grey
+                                      : theme.secondary,
+                              icon: Icon(
                                 kbService.isMessageLoading
-                                    ? null
-                                    : _sendMessage,
-                          );
-                        },
-                      ),
-                    ],
+                                    ? Icons.hourglass_empty
+                                    : Icons.send_rounded,
+                                color: theme.info,
+                                size: 24,
+                              ),
+                              onPressed:
+                                  kbService.isMessageLoading
+                                      ? null
+                                      : _sendMessage,
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

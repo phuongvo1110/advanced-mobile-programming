@@ -351,7 +351,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
             size: 24.0,
           ),
           onPressed: () {
-            Navigator.pushNamed(context, '/bots');
+            Navigator.pop(context);
           },
         ),
         title: Text(

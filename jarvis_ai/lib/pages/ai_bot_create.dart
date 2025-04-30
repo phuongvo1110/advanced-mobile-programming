@@ -270,6 +270,8 @@ class _AIBotCreaePageWidgetState extends State<AIBotCreatePageWidget> {
             },
           ),
         );
+      } else {
+        Navigator.pop(context, true);
       }
     } catch (e, stackTrace) {
       debugPrint('Error in _handleAssistant: $e');
@@ -593,223 +595,225 @@ class _AIBotCreaePageWidgetState extends State<AIBotCreatePageWidget> {
                       ],
                     ),
                     SizedBox(height: 24.0),
-                    Column(
-                      mainAxisSize: MainAxisSize.max,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Knowledge Sources',
-                          style: JarvisTheme.of(context).titleMedium.override(
-                            fontFamily: 'Inter Tight',
-                            letterSpacing: 0.0,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        SizedBox(height: 8.0),
-                        Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color:
-                                  JarvisTheme.of(context).secondaryBackground,
-                              borderRadius: BorderRadius.circular(12.0),
-                              border: Border.all(
-                                color: JarvisTheme.of(context).alternate,
-                                width: 1.0,
-                              ),
+                    if (existingAssistant == null)
+                      Column(
+                        mainAxisSize: MainAxisSize.max,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Knowledge Sources',
+                            style: JarvisTheme.of(context).titleMedium.override(
+                              fontFamily: 'Inter Tight',
+                              letterSpacing: 0.0,
+                              fontWeight: FontWeight.w600,
                             ),
-                            child: Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.max,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.max,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Upload documents',
-                                        style: JarvisTheme.of(
-                                          context,
-                                        ).bodyMedium.override(
-                                          fontFamily: 'Inter',
-                                          color:
-                                              JarvisTheme.of(
-                                                context,
-                                              ).primaryText,
-                                          letterSpacing: 0.0,
+                          ),
+                          SizedBox(height: 8.0),
+                          Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color:
+                                    JarvisTheme.of(context).secondaryBackground,
+                                borderRadius: BorderRadius.circular(12.0),
+                                border: Border.all(
+                                  color: JarvisTheme.of(context).alternate,
+                                  width: 1.0,
+                                ),
+                              ),
+                              child: Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.max,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.max,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Upload documents',
+                                          style: JarvisTheme.of(
+                                            context,
+                                          ).bodyMedium.override(
+                                            fontFamily: 'Inter',
+                                            color:
+                                                JarvisTheme.of(
+                                                  context,
+                                                ).primaryText,
+                                            letterSpacing: 0.0,
+                                          ),
                                         ),
-                                      ),
-                                      JarvisIconButton(
-                                        borderRadius: 20.0,
-                                        buttonSize: 40.0,
-                                        icon: Icon(
-                                          Icons.add_circle_outline_rounded,
-                                          color:
-                                              JarvisTheme.of(context).primary,
-                                          size: 24.0,
+                                        JarvisIconButton(
+                                          borderRadius: 20.0,
+                                          buttonSize: 40.0,
+                                          icon: Icon(
+                                            Icons.add_circle_outline_rounded,
+                                            color:
+                                                JarvisTheme.of(context).primary,
+                                            size: 24.0,
+                                          ),
+                                          onPressed: () {
+                                            _pickFile();
+                                          },
                                         ),
-                                        onPressed: () {
-                                          _pickFile();
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 16.0),
-                                  Divider(
-                                    height: 1.0,
-                                    thickness: 1.0,
-                                    color: JarvisTheme.of(context).alternate,
-                                  ),
-                                  SizedBox(height: 16.0),
-                                  if (_model.fileError != null)
-                                    Padding(
-                                      padding: EdgeInsets.only(top: 8.0),
-                                      child: Text(
-                                        _model.fileError!,
-                                        style: JarvisTheme.of(
-                                          context,
-                                        ).bodySmall.copyWith(
-                                          color: JarvisTheme.of(context).error,
-                                        ),
-                                      ),
+                                      ],
                                     ),
-                                  SizedBox(height: 8.0),
-                                  Observer(
-                                    builder:
-                                        (_) =>
-                                            _model.selectedFiles.isEmpty
-                                                ? Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.max,
-                                                  children: [
-                                                    Padding(
-                                                      padding:
-                                                          EdgeInsetsDirectional.fromSTEB(
-                                                            12.0,
-                                                            0.0,
-                                                            12.0,
-                                                            0.0,
-                                                          ),
-                                                      child: Icon(
-                                                        Icons
-                                                            .description_outlined,
-                                                        color:
-                                                            JarvisTheme.of(
-                                                              context,
-                                                            ).secondaryText,
-                                                        size: 24.0,
+                                    SizedBox(height: 16.0),
+                                    Divider(
+                                      height: 1.0,
+                                      thickness: 1.0,
+                                      color: JarvisTheme.of(context).alternate,
+                                    ),
+                                    SizedBox(height: 16.0),
+                                    if (_model.fileError != null)
+                                      Padding(
+                                        padding: EdgeInsets.only(top: 8.0),
+                                        child: Text(
+                                          _model.fileError!,
+                                          style: JarvisTheme.of(
+                                            context,
+                                          ).bodySmall.copyWith(
+                                            color:
+                                                JarvisTheme.of(context).error,
+                                          ),
+                                        ),
+                                      ),
+                                    SizedBox(height: 8.0),
+                                    Observer(
+                                      builder:
+                                          (_) =>
+                                              _model.selectedFiles.isEmpty
+                                                  ? Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.max,
+                                                    children: [
+                                                      Padding(
+                                                        padding:
+                                                            EdgeInsetsDirectional.fromSTEB(
+                                                              12.0,
+                                                              0.0,
+                                                              12.0,
+                                                              0.0,
+                                                            ),
+                                                        child: Icon(
+                                                          Icons
+                                                              .description_outlined,
+                                                          color:
+                                                              JarvisTheme.of(
+                                                                context,
+                                                              ).secondaryText,
+                                                          size: 24.0,
+                                                        ),
                                                       ),
-                                                    ),
-                                                    Text(
-                                                      'No documents uploaded yet',
-                                                      style: JarvisTheme.of(
-                                                        context,
-                                                      ).bodyMedium.override(
-                                                        fontFamily: 'Inter',
-                                                        color:
-                                                            JarvisTheme.of(
-                                                              context,
-                                                            ).secondaryText,
-                                                        letterSpacing: 0.0,
+                                                      Text(
+                                                        'No documents uploaded yet',
+                                                        style: JarvisTheme.of(
+                                                          context,
+                                                        ).bodyMedium.override(
+                                                          fontFamily: 'Inter',
+                                                          color:
+                                                              JarvisTheme.of(
+                                                                context,
+                                                              ).secondaryText,
+                                                          letterSpacing: 0.0,
+                                                        ),
                                                       ),
-                                                    ),
-                                                  ],
-                                                )
-                                                : Column(
-                                                  children:
-                                                      _model.selectedFiles.map((
-                                                        file,
-                                                      ) {
-                                                        return Padding(
-                                                          padding:
-                                                              EdgeInsets.symmetric(
-                                                                vertical: 8.0,
-                                                              ),
-                                                          child: Row(
-                                                            mainAxisSize:
-                                                                MainAxisSize
-                                                                    .max,
-                                                            mainAxisAlignment:
-                                                                MainAxisAlignment
-                                                                    .spaceBetween,
-                                                            children: [
-                                                              Row(
-                                                                children: [
-                                                                  Padding(
-                                                                    padding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                          12.0,
-                                                                          0.0,
-                                                                          12.0,
-                                                                          0.0,
-                                                                        ),
-                                                                    child: Icon(
-                                                                      Icons
-                                                                          .description_outlined,
-                                                                      color:
-                                                                          JarvisTheme.of(
-                                                                            context,
-                                                                          ).primaryText,
-                                                                      size:
-                                                                          24.0,
-                                                                    ),
-                                                                  ),
-                                                                  Text(
-                                                                    file.name,
-                                                                    style: JarvisTheme.of(
-                                                                      context,
-                                                                    ).bodyMedium.override(
-                                                                      fontFamily:
-                                                                          'Inter',
-                                                                      color:
-                                                                          JarvisTheme.of(
-                                                                            context,
-                                                                          ).primaryText,
-                                                                      letterSpacing:
-                                                                          0.0,
-                                                                    ),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                              JarvisIconButton(
-                                                                borderRadius:
-                                                                    20.0,
-                                                                buttonSize:
-                                                                    40.0,
-                                                                icon: Icon(
-                                                                  Icons
-                                                                      .delete_outline,
-                                                                  color:
-                                                                      JarvisTheme.of(
-                                                                        context,
-                                                                      ).error,
-                                                                  size: 24.0,
+                                                    ],
+                                                  )
+                                                  : Column(
+                                                    children:
+                                                        _model.selectedFiles.map((
+                                                          file,
+                                                        ) {
+                                                          return Padding(
+                                                            padding:
+                                                                EdgeInsets.symmetric(
+                                                                  vertical: 8.0,
                                                                 ),
-                                                                onPressed: () {
-                                                                  setState(() {
-                                                                    _model
-                                                                        .removeFile(
-                                                                          file,
-                                                                        );
-                                                                  });
-                                                                },
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        );
-                                                      }).toList(),
-                                                ),
-                                  ),
-                                ],
+                                                            child: Row(
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .max,
+                                                              mainAxisAlignment:
+                                                                  MainAxisAlignment
+                                                                      .spaceBetween,
+                                                              children: [
+                                                                Row(
+                                                                  children: [
+                                                                    Padding(
+                                                                      padding:
+                                                                          EdgeInsetsDirectional.fromSTEB(
+                                                                            12.0,
+                                                                            0.0,
+                                                                            12.0,
+                                                                            0.0,
+                                                                          ),
+                                                                      child: Icon(
+                                                                        Icons
+                                                                            .description_outlined,
+                                                                        color:
+                                                                            JarvisTheme.of(
+                                                                              context,
+                                                                            ).primaryText,
+                                                                        size:
+                                                                            24.0,
+                                                                      ),
+                                                                    ),
+                                                                    Text(
+                                                                      file.name,
+                                                                      style: JarvisTheme.of(
+                                                                        context,
+                                                                      ).bodyMedium.override(
+                                                                        fontFamily:
+                                                                            'Inter',
+                                                                        color:
+                                                                            JarvisTheme.of(
+                                                                              context,
+                                                                            ).primaryText,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                                JarvisIconButton(
+                                                                  borderRadius:
+                                                                      20.0,
+                                                                  buttonSize:
+                                                                      40.0,
+                                                                  icon: Icon(
+                                                                    Icons
+                                                                        .delete_outline,
+                                                                    color:
+                                                                        JarvisTheme.of(
+                                                                          context,
+                                                                        ).error,
+                                                                    size: 24.0,
+                                                                  ),
+                                                                  onPressed: () {
+                                                                    setState(() {
+                                                                      _model
+                                                                          .removeFile(
+                                                                            file,
+                                                                          );
+                                                                    });
+                                                                  },
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          );
+                                                        }).toList(),
+                                                  ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
                   ],
                 ),
                 Padding(

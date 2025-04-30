@@ -429,10 +429,14 @@ mixin _$KBService on _KBService, Store {
 
   @override
   Future<AssistantDetail?> updateInstructionAssistant(
-      {required String assistantId, required String instructions}) {
+      {required String assistantId,
+      required String instructions,
+      required String assistantName}) {
     return _$updateInstructionAssistantAsyncAction.run(() => super
         .updateInstructionAssistant(
-            assistantId: assistantId, instructions: instructions));
+            assistantId: assistantId,
+            instructions: instructions,
+            assistantName: assistantName));
   }
 
   @override

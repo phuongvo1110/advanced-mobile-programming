@@ -663,7 +663,7 @@ abstract class _KBService with Store {
   @action
   Future<bool> attachKnowledgeBase({
     required String assistantId,
-    required String knowledgeId,
+    required String knowledgeId
   }) async {
     try {
       final user = await getUser();
@@ -688,12 +688,14 @@ abstract class _KBService with Store {
   Future<AssistantDetail?> updateInstructionAssistant({
     required String assistantId,
     required String instructions,
+    required String assistantName
   }) async {
     try {
       final user = await getUser();
 
       final requestBody = {
         'instructions': instructions,
+        'assistantName': assistantName,
       };
 
       final response = await _apiService.patch(
@@ -709,8 +711,8 @@ abstract class _KBService with Store {
       return AssistantDetail.fromJson(response);
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) rethrow;
-      
       print('Error updating instruction: $e');
+      return null;
     }
   }
 }
