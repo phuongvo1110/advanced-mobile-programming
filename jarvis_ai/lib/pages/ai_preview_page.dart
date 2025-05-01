@@ -2,13 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:intl/intl.dart';
 import 'package:jarvis_ai/models/assistant.dart';
+import 'package:jarvis_ai/models/knowledgebase.dart';
 import 'package:jarvis_ai/models/prompt.dart';
 import 'package:jarvis_ai/models/thread_message.dart';
 import 'package:jarvis_ai/pages/ai_bot_create.dart';
+import 'package:jarvis_ai/pages/prompt_create._page.dart';
 import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/flutter_flow_model.dart';
+import 'package:jarvis_ai/theme/flutter_flow_theme.dart';
 import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
+import 'package:jarvis_ai/components/card_prompt_widget.dart';
+import 'package:jarvis_ai/theme/flutter_flow_choice_chips.dart';
+import 'package:jarvis_ai/theme/form_field_controller.dart';
 
 class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
   FocusNode? textFieldFocusNode;
@@ -17,6 +23,8 @@ class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
   ScrollController? knowledgeBaseScrollController;
   ScrollController? chatScrollController;
   ScrollController? drawerScrollController;
+  ScrollController? promptDrawerScrollController;
+  ScrollController? knowledgeUnitsScrollController;
 
   FocusNode? instructionFieldFocusNode;
   TextEditingController? instructionController;
@@ -25,6 +33,16 @@ class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
   ScrollController? promptScrollController;
   OverlayEntry? promptOverlayEntry;
   bool isPromptDropdownVisible = false;
+
+  FocusNode? promptSearchFieldFocusNode;
+  TextEditingController? promptSearchController;
+  FormFieldController<List<String>>? choiceChipsController;
+  String? get choiceChipsValue => choiceChipsController?.value?.firstOrNull;
+  FocusNode? knowledgeUnitsSearchFieldFocusNode;
+  TextEditingController? knowledgeUnitsSearchController;
+  set choiceChipsValue(String? val) =>
+      choiceChipsController?.value = val != null ? [val] : [];
+
   @override
   void initState(BuildContext context) {
     textControllerValidator = (value) {
@@ -37,6 +55,14 @@ class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
     chatScrollController = ScrollController();
     drawerScrollController = ScrollController();
     promptScrollController = ScrollController();
+    promptDrawerScrollController = ScrollController();
+    promptSearchController = TextEditingController();
+
+    knowledgeUnitsScrollController = ScrollController();
+    promptSearchFieldFocusNode = FocusNode();
+    choiceChipsController = FormFieldController<List<String>>(['All']);
+    knowledgeUnitsSearchController = TextEditingController();
+    knowledgeUnitsSearchFieldFocusNode = FocusNode();
   }
 
   @override
@@ -51,6 +77,14 @@ class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
     promptScrollController?.dispose();
     promptOverlayEntry?.remove();
     promptOverlayEntry = null;
+
+    promptDrawerScrollController?.dispose();
+    promptSearchFieldFocusNode?.dispose();
+    promptSearchController?.dispose();
+    choiceChipsController?.dispose();
+    knowledgeUnitsScrollController?.dispose();
+    knowledgeUnitsSearchFieldFocusNode?.dispose();
+    knowledgeUnitsSearchController?.dispose();
   }
 }
 
@@ -72,7 +106,8 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
   late PreviewpageModel _model;
   AssistantDetail? _assistant;
   GlobalKey textFieldKey = GlobalKey();
-
+  GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  String? selectedKnowledgeBaseId;
   @override
   void initState() {
     super.initState();
@@ -87,6 +122,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     _fetchKnowledgeBases(refresh: true);
     _fetchGlobalKnowledgeBases(refresh: true);
     _loadPrompts(refresh: true);
+
     _model.knowledgeBaseScrollController?.addListener(() {
       if (_model.knowledgeBaseScrollController!.position.pixels >=
           _model.knowledgeBaseScrollController!.position.maxScrollExtent -
@@ -100,6 +136,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
         }
       }
     });
+
     _model.promptScrollController?.addListener(() {
       if (_model.promptScrollController!.position.pixels >=
           _model.promptScrollController!.position.maxScrollExtent - 50) {
@@ -109,6 +146,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
         }
       }
     });
+
     _model.drawerScrollController?.addListener(() {
       if (_model.drawerScrollController!.position.pixels >=
           _model.drawerScrollController!.position.maxScrollExtent - 200) {
@@ -118,19 +156,67 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
         }
       }
     });
+
+    _model.promptDrawerScrollController?.addListener(() {
+      if (_model.promptDrawerScrollController!.position.pixels >=
+          _model.promptDrawerScrollController!.position.maxScrollExtent - 50) {
+        if (widget.apiStore.jarvisService.hasMorePrompts &&
+            !widget.apiStore.jarvisService.isLoading) {
+          widget.apiStore.jarvisService.loadMorePrompts();
+        }
+      }
+    });
+    _model.knowledgeUnitsScrollController?.addListener(() {
+      if (_model.knowledgeUnitsScrollController!.position.pixels >=
+          _model.knowledgeUnitsScrollController!.position.maxScrollExtent -
+              50) {
+        if (widget.apiStore.kbService.hasMoreUnits &&
+            !widget.apiStore.kbService.isUnitLoading &&
+            selectedKnowledgeBaseId != null) {
+          widget.apiStore.kbService.loadMoreKnowledgeUnits(
+            id: selectedKnowledgeBaseId as String,
+          );
+        }
+      }
+    });
   }
 
   Future<void> _loadPrompts({bool refresh = false}) async {
     try {
       await widget.apiStore.jarvisService.getPrompts(
         refresh: refresh,
-        search: '',
-        isPublic: null,
-        isFavorite: null,
+        search: _model.promptSearchController?.text ?? '',
+        isPublic:
+            _model.choiceChipsValue == 'Public'
+                ? true
+                : _model.choiceChipsValue == 'Private'
+                ? false
+                : null,
+        isFavorite: _model.choiceChipsValue == 'Favorites' ? true : null,
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load prompts: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _fetchUnits({
+    bool refresh = false,
+    required String knowledgeId,
+  }) async {
+    setState(() {
+      selectedKnowledgeBaseId = knowledgeId;
+    });
+    try {
+      await widget.apiStore.kbService.getKnowledgeUnits(
+        refresh: refresh,
+        search: _model.knowledgeUnitsSearchController?.text ?? '',
+        knowledgeId: knowledgeId,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load Units: ${e.toString()}')),
       );
     }
   }
@@ -140,7 +226,6 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     if (text.startsWith('/')) {
       if (!_model.isPromptDropdownVisible) {
         _showPromptDropdown();
-        // widget.apiStore.jarvisService.getPrompts(refresh: true);
       }
     } else {
       if (_model.isPromptDropdownVisible) {
@@ -163,7 +248,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
       builder:
           (context) => Positioned(
             left: position.dx,
-            top: position.dy - 250, // Position above the text field
+            top: position.dy - 250,
             width: size.width,
             child: Material(
               elevation: 4,
@@ -194,18 +279,8 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                                     style: const TextStyle(fontSize: 14),
                                   ),
                                   onTap: () {
-                                    // _model.textController!.text =
-                                    //     prompt.content ?? '';
-                                    // _model
-                                    //     .textController!
-                                    //     .selection = TextSelection.fromPosition(
-                                    //   TextPosition(
-                                    //     offset:
-                                    //         _model.textController!.text.length,
-                                    //   ),
-                                    // );
                                     _hidePromptDropdown();
-                                    _showPromptDialog(prompt);
+                                    _showPromptDialog(prompt, context);
                                   },
                                 );
                               } else if (jarvisService.isLoading) {
@@ -244,131 +319,169 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     });
   }
 
-  void _showPromptDialog(Prompt prompt) {
+  Future<void> _handleFavoriteToggle(String promptId) async {
+    try {
+      await widget.apiStore.jarvisService.toggleFavorite(promptId);
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to toggle favorite: $e')));
+    }
+  }
+
+  void _showPromptDialog(Prompt prompt, BuildContext dialogContext) {
     final TextEditingController userInputController = TextEditingController();
-    final theme = JarvisTheme.of(context);
+    final theme = JarvisTheme.of(dialogContext);
     String selectedLanguage = 'Auto';
     showDialog(
-      context: context,
+      context: dialogContext,
       builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  prompt.title ?? 'Untitled Prompt',
-                  style: theme.titleMedium,
+          (context) => Observer(
+            builder: (context) {
+              // Find the latest prompt from the service to ensure we have the updated favorite status
+              final updatedPrompt = widget.apiStore.jarvisService.prompts
+                  .firstWhere((p) => p.id == prompt.id, orElse: () => prompt);
+              return AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                Row(
+                title: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.star_border, size: 24),
-                      onPressed: () {
-                        // Handle favorite action
-                      },
+                    Text(
+                      updatedPrompt.title ?? 'Untitled Prompt',
+                      style: theme.titleMedium,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 24),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            updatedPrompt.isFavorite ?? false
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            color:
+                                updatedPrompt.isFavorite ?? false
+                                    ? Colors.red
+                                    : Colors.white,
+                            size: 24.0,
+                          ),
+                          onPressed: () {
+                            _handleFavoriteToggle(updatedPrompt.id);
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 24),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Prompt',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(prompt.content ?? '', style: theme.bodyMedium),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Output Language',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: 'Auto',
-                    items:
-                        ['Auto', 'English', 'Spanish', 'French']
-                            .map(
-                              (lang) => DropdownMenuItem(
-                                value: lang,
-                                child: Text(lang),
-                              ),
-                            )
-                            .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedLanguage = value!;
-                      });
-                    },
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Prompt',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                      const SizedBox(height: 8),
+                      Text(
+                        updatedPrompt.content ?? '',
+                        style: theme.bodyMedium,
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Text',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: userInputController,
-                    maxLines: 5,
-                    decoration: InputDecoration(
-                      hintText: 'Enter your text here...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Output Language',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      contentPadding: const EdgeInsets.all(12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  _sendMessageWithPrompt(
-                    promptContent: prompt.content ?? '',
-                    userInput: userInputController.text,
-                    language: selectedLanguage
-                  );
-                  Navigator.of(context).pop();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: 'Auto',
+                        items:
+                            ['Auto', 'English', 'Spanish', 'French']
+                                .map(
+                                  (lang) => DropdownMenuItem(
+                                    value: lang,
+                                    child: Text(lang),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            selectedLanguage = value!;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Text',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: userInputController,
+                        maxLines: 5,
+                        decoration: InputDecoration(
+                          hintText: 'Enter your text here...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.all(12),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: const Text('Send'),
-              ),
-            ],
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      _sendMessageWithPrompt(
+                        promptContent: updatedPrompt.content ?? '',
+                        userInput: userInputController.text,
+                        language: selectedLanguage,
+                      );
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text('Send'),
+                  ),
+                ],
+              );
+            },
           ),
     );
   }
@@ -401,7 +514,8 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
         }
       } else {
         if (language != 'Auto') {
-          modifiedPrompt = '$modifiedPrompt\n User Input: $userInput \n Response in language: $language';
+          modifiedPrompt =
+              '$modifiedPrompt\n User Input: $userInput \n Response in language: $language';
         } else {
           modifiedPrompt = '$modifiedPrompt\n User Input: $userInput';
         }
@@ -653,79 +767,545 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
         FocusManager.instance.primaryFocus?.unfocus();
       },
       child: Scaffold(
+        key: _scaffoldKey,
         resizeToAvoidBottomInset: true,
         backgroundColor: theme.primaryBackground,
-        endDrawer: Drawer(
-          width: 300,
-          backgroundColor: theme.secondaryBackground,
-          child: Observer(
-            builder: (context) {
-              final kbService = widget.apiStore.kbService;
-              if (kbService.isLoading &&
-                  kbService.globalKnowledgeBases.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (kbService.globalKnowledgeBases.isEmpty) {
-                return const Center(child: Text('No knowledge bases found'));
-              }
-              return SingleChildScrollView(
-                controller: _model.drawerScrollController,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        'Available Knowledge Bases',
-                        style: theme.titleMedium,
+        drawer: Drawer(
+          width: 400,
+          backgroundColor: theme.primaryBackground,
+          child: Column(
+            children: [
+              AppBar(
+                backgroundColor: theme.secondaryBackground,
+                automaticallyImplyLeading: false,
+                title: Text('Prompt Library', style: theme.titleMedium),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      Navigator.pop(context); // Close the drawer
+                    },
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: TextFormField(
+                  controller: _model.promptSearchController,
+                  focusNode: _model.promptSearchFieldFocusNode,
+                  onChanged: (value) {
+                    _loadPrompts(refresh: true);
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search prompts...',
+                    hintStyle: theme.labelMedium,
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: theme.alternate),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: theme.alternate),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: theme.primary),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: FlutterFlowChoiceChips(
+                  options: const [
+                    ChipData('All'),
+                    ChipData('Public'),
+                    ChipData('Private'),
+                    ChipData('Favorites'),
+                  ],
+                  onChanged: (val) {
+                    setState(() {
+                      _model.choiceChipsValue = val?.firstOrNull;
+                    });
+                    _loadPrompts(refresh: true);
+                  },
+                  selectedChipStyle: ChipStyle(
+                    backgroundColor: theme.secondary,
+                    textStyle: theme.bodyMedium.override(
+                      fontFamily: 'Inter',
+                      color: theme.info,
+                    ),
+                    iconColor: theme.info,
+                    iconSize: 16,
+                    labelPadding: const EdgeInsets.symmetric(
+                      horizontal: 15,
+                      vertical: 5,
+                    ),
+                    elevation: 0,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  unselectedChipStyle: ChipStyle(
+                    backgroundColor: theme.secondaryBackground,
+                    textStyle: theme.bodyMedium.override(
+                      fontFamily: 'Inter',
+                      color: theme.secondaryText,
+                    ),
+                    iconColor: theme.secondaryText,
+                    iconSize: 16,
+                    labelPadding: const EdgeInsets.symmetric(
+                      horizontal: 15,
+                      vertical: 5,
+                    ),
+                    elevation: 0,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  chipSpacing: 18,
+                  rowSpacing: 8,
+                  multiselect: false,
+                  alignment: WrapAlignment.center,
+                  controller:
+                      _model.choiceChipsController ??=
+                          FormFieldController<List<String>>([]),
+                ),
+              ),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () => _loadPrompts(refresh: true),
+                  child: Observer(
+                    builder: (context) {
+                      final prompts =
+                          widget.apiStore.jarvisService.prompts.toList();
+                      if (widget.apiStore.jarvisService.isLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (prompts.isEmpty &&
+                          !widget.apiStore.jarvisService.isLoading) {
+                        return Center(
+                          child: Text(
+                            'No prompts available',
+                            style: JarvisTheme.of(context).bodyMedium,
+                          ),
+                        );
+                      }
+                      return Builder(
+                        builder: (dialogContext) {
+                          return ListView.builder(
+                            controller: _model.promptDrawerScrollController,
+                            itemCount:
+                                widget.apiStore.jarvisService.prompts.length +
+                                (widget.apiStore.jarvisService.hasMorePrompts
+                                    ? 1
+                                    : 0),
+                            itemBuilder: (context, index) {
+                              if (index >=
+                                  widget
+                                      .apiStore
+                                      .jarvisService
+                                      .prompts
+                                      .length) {
+                                return widget.apiStore.jarvisService.isLoading
+                                    ? const Center(
+                                      child: CircularProgressIndicator(),
+                                    )
+                                    : const SizedBox.shrink();
+                              }
+
+                              Prompt prompt =
+                                  widget.apiStore.jarvisService.prompts[index];
+                              return CardPromtWidget(
+                                prompt: prompt,
+                                onFavoriteChanged: (isFavorite) {
+                                  _handleFavoriteToggle(prompt.id);
+                                },
+                                jarvisService: widget.apiStore.jarvisService,
+                                onEditPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) {
+                                        return PromptCreatingPage(
+                                          apiStore: widget.apiStore,
+                                          existingPrompt: prompt,
+                                        );
+                                      },
+                                    ),
+                                  );
+                                },
+                                onTap: () {
+                                  print('Prompt tapped: ${prompt.title}');
+                                  Navigator.pop(context);
+                                  _showPromptDialog(prompt, dialogContext);
+                                },
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Align(
+                alignment: AlignmentDirectional(0.0, 1.0),
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(0x00FFFFFF),
+                        JarvisTheme.of(context).primaryBackground,
+                      ],
+                      stops: [0.0, 1.0],
+                      begin: AlignmentDirectional(-1.0, 0.0),
+                      end: AlignmentDirectional(1.0, 0),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsetsDirectional.fromSTEB(
+                      16.0,
+                      0.0,
+                      16.0,
+                      16.0,
+                    ),
+                    child: FFButtonWidget(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/create-prompt');
+                      },
+                      text: 'Create New Prompt',
+                      options: FFButtonOptions(
+                        width: double.infinity,
+                        height: 50.0,
+                        padding: EdgeInsetsDirectional.fromSTEB(
+                          16.0,
+                          0.0,
+                          16.0,
+                          0.0,
+                        ),
+                        iconPadding: EdgeInsetsDirectional.fromSTEB(
+                          0.0,
+                          0.0,
+                          0.0,
+                          0.0,
+                        ),
+                        color: JarvisTheme.of(context).secondary,
+                        textStyle: JarvisTheme.of(context).titleSmall.override(
+                          fontFamily: 'Inter Tight',
+                          color: JarvisTheme.of(context).info,
+                          letterSpacing: 0.0,
+                        ),
+                        elevation: 0.0,
+                        borderSide: BorderSide(
+                          color: Colors.transparent,
+                          width: 1.0,
+                        ),
+                        borderRadius: BorderRadius.circular(12.0),
                       ),
                     ),
-                    ...kbService.globalKnowledgeBases.map(
-                      (kb) => Padding(
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        endDrawer:
+            selectedKnowledgeBaseId != null
+                ? Drawer(
+                  width: 400,
+                  backgroundColor: theme.secondaryBackground,
+                  child: Column(
+                    children: [
+                      AppBar(
+                        backgroundColor: theme.secondaryBackground,
+                        automaticallyImplyLeading: false,
+                        leading: IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () {
+                            setState(() {
+                              selectedKnowledgeBaseId = null;
+                              widget.apiStore.kbService.units.clear();
+                            });
+                            _scaffoldKey.currentState?.openEndDrawer();
+                          },
+                        ),
+                        title: Text(
+                          widget.apiStore.kbService.knowledgeBases
+                                  .firstWhere(
+                                    (kb) => kb.id == selectedKnowledgeBaseId,
+                                    orElse:
+                                        () => KnowledgeBase(
+                                          knowledgeName: 'Knowledge Base',
+                                        ),
+                                  )
+                                  .knowledgeName ??
+                              'Knowledge Base',
+                          style: theme.titleMedium,
+                        ),
+                        actions: [
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () {
+                              setState(() {
+                                selectedKnowledgeBaseId = null;
+                                widget.apiStore.kbService.units.clear();
+                                widget.apiStore.kbService.unitsPage = 0;
+                                widget.apiStore.kbService.hasMoreUnits = true;
+                              });
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ],
+                      ),
+                      Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 8,
                         ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: theme.primaryBackground,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: theme.alternate,
-                              width: 1,
+                        child: TextFormField(
+                          controller: _model.knowledgeUnitsSearchController,
+                          focusNode: _model.knowledgeUnitsSearchFieldFocusNode,
+                          decoration: InputDecoration(
+                            hintText: 'Search units...',
+                            hintStyle: theme.labelMedium,
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: theme.alternate),
                             ),
-                          ),
-                          child: ListTile(
-                            title: Text(
-                              kb.knowledgeName ?? 'Untitled',
-                              style: theme.bodyLarge,
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: theme.alternate),
                             ),
-                            subtitle: Text(
-                              'Last updated: ${DateFormat('MMM d, yyyy').format(DateTime.parse(kb.updatedAt ?? DateTime.now().toIso8601String()))}',
-                              style: theme.bodySmall.copyWith(
-                                color: theme.secondaryText,
-                              ),
-                            ),
-                            trailing: IconButton(
-                              icon: Icon(Icons.add, color: theme.primary),
-                              onPressed:
-                                  () => _attachKnowledgeBase(kb.id as String),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: theme.primary),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    if (kbService.isLoading)
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Center(child: CircularProgressIndicator()),
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: () async {
+                            if (selectedKnowledgeBaseId != null) {
+                              await _fetchUnits(
+                                refresh: true,
+                                knowledgeId: selectedKnowledgeBaseId!,
+                              );
+                            }
+                          },
+                          child: Observer(
+                            builder: (context) {
+                              final isLoading =
+                                  widget.apiStore.kbService.isUnitLoading;
+                              final units = widget.apiStore.kbService.units;
+                              if (isLoading && units.isEmpty) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              }
+                              if (units.isEmpty) {
+                                return Center(
+                                  child: Text(
+                                    'No knowledge units found',
+                                    style: theme.bodyMedium,
+                                  ),
+                                );
+                              }
+                              return ListView.builder(
+                                controller:
+                                    _model.knowledgeUnitsScrollController,
+                                itemCount:
+                                    widget.apiStore.kbService.units.length,
+                                itemBuilder: (context, index) {
+                                  final unit =
+                                      widget.apiStore.kbService.units[index];
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
+                                    ),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: theme.alternate,
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: ListTile(
+                                        leading: Icon(
+                                          Icons.description,
+                                          color: theme.secondaryText,
+                                        ),
+                                        title: Text(
+                                          unit.name ?? 'Untitled',
+                                          style: theme.bodyMedium,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        subtitle: Row(
+                                          children: [
+                                            Text(
+                                              '${unit.size!.toStringAsFixed(2)} KB',
+                                              style: theme.bodySmall.copyWith(
+                                                color: Colors.green,
+                                              ),
+                                            ),
+                                            // const SizedBox(width: 8),
+                                            // Text(
+                                            //   unit.type ?? 'Unknown',
+                                            //   style: theme.bodySmall
+                                            //       .copyWith(
+                                            //         color:
+                                            //             theme.secondaryText,
+                                            //       ),
+                                            // ),
+                                          ],
+                                        ),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Switch(
+                                              value: unit.status!,
+                                              onChanged: (value) {
+                                                // Implement toggle logic if needed
+                                              },
+                                              activeColor: theme.primary,
+                                            ),
+                                            IconButton(
+                                              icon: Icon(
+                                                Icons.delete,
+                                                color: theme.error,
+                                              ),
+                                              onPressed: () {
+                                                // Implement delete logic if needed
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
                       ),
-                  ],
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            // Implement add knowledge unit logic
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.primary,
+                            foregroundColor: theme.info,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                          child: const Text('Add Knowledge Unit'),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                : Drawer(
+                  width: 300,
+                  backgroundColor: theme.secondaryBackground,
+                  child: Expanded(
+                    child: RefreshIndicator(
+                      child: Observer(
+                        builder: (context) {
+                          final kbService = widget.apiStore.kbService;
+                          if (kbService.isLoading &&
+                              kbService.globalKnowledgeBases.isEmpty) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (kbService.globalKnowledgeBases.isEmpty) {
+                            return const Center(
+                              child: Text('No knowledge bases found'),
+                            );
+                          }
+                          return SingleChildScrollView(
+                            controller: _model.drawerScrollController,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Text(
+                                    'Available Knowledge Bases',
+                                    style: theme.titleMedium,
+                                  ),
+                                ),
+                                ...kbService.globalKnowledgeBases.map(
+                                  (kb) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
+                                    ),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: theme.primaryBackground,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: theme.alternate,
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: ListTile(
+                                        title: Text(
+                                          kb.knowledgeName ?? 'Untitled',
+                                          style: theme.bodyLarge,
+                                        ),
+                                        subtitle: Text(
+                                          'Last updated: ${DateFormat('MMM d, yyyy').format(DateTime.parse(kb.updatedAt ?? DateTime.now().toIso8601String()))}',
+                                          style: theme.bodySmall.copyWith(
+                                            color: theme.secondaryText,
+                                          ),
+                                        ),
+                                        trailing: IconButton(
+                                          icon: Icon(
+                                            Icons.add,
+                                            color: theme.primary,
+                                          ),
+                                          onPressed:
+                                              () => _attachKnowledgeBase(
+                                                kb.id as String,
+                                              ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (kbService.isLoading)
+                                  const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                      onRefresh:
+                          () => _fetchGlobalKnowledgeBases(refresh: true),
+                    ),
+                  ),
                 ),
-              );
-            },
-          ),
-        ),
         body: Column(
           mainAxisSize: MainAxisSize.max,
           children: [
@@ -770,7 +1350,6 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                           },
                         ),
                       );
-                      // If result is true, refresh assistants
                       if (result == true) {
                         await _fetchAssistant();
                       }
@@ -856,65 +1435,74 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                               16,
                               12,
                             ),
-                            child: Container(
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: theme.secondaryBackground,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: theme.alternate,
-                                  width: 1,
+                            child: GestureDetector(
+                              onTap: () async {
+                                await _fetchUnits(
+                                  refresh: true,
+                                  knowledgeId: kb.id!,
+                                );
+                                _scaffoldKey.currentState?.openEndDrawer();
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: theme.secondaryBackground,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: theme.alternate,
+                                    width: 1,
+                                  ),
                                 ),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.max,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            kb.knowledgeName ?? 'Untitled',
-                                            style: theme.bodyLarge,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                  0,
-                                                  4,
-                                                  0,
-                                                  0,
-                                                ),
-                                            child: Text(
-                                              'Last updated: ${DateFormat('MMM d, yyyy').format(DateTime.parse(kb.updatedAt ?? DateTime.now().toIso8601String()))}',
-                                              style: theme.bodySmall.copyWith(
-                                                color: theme.secondaryText,
-                                                letterSpacing: 0.0,
-                                              ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.max,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.max,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              kb.knowledgeName ?? 'Untitled',
+                                              style: theme.bodyLarge,
                                               overflow: TextOverflow.ellipsis,
                                             ),
-                                          ),
-                                        ],
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsetsDirectional.fromSTEB(
+                                                    0,
+                                                    4,
+                                                    0,
+                                                    0,
+                                                  ),
+                                              child: Text(
+                                                'Last updated: ${DateFormat('MMM d, yyyy').format(DateTime.parse(kb.updatedAt ?? DateTime.now().toIso8601String()))}',
+                                                style: theme.bodySmall.copyWith(
+                                                  color: theme.secondaryText,
+                                                  letterSpacing: 0.0,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    JarvisIconButton(
-                                      borderRadius: 20,
-                                      buttonSize: 40,
-                                      icon: Icon(
-                                        Icons.edit,
-                                        color: theme.primaryText,
-                                        size: 24,
+                                      JarvisIconButton(
+                                        borderRadius: 20,
+                                        buttonSize: 40,
+                                        icon: Icon(
+                                          Icons.edit,
+                                          color: theme.primaryText,
+                                          size: 24,
+                                        ),
+                                        onPressed: () {},
                                       ),
-                                      onPressed: () {},
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -1000,14 +1588,14 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                     ),
                     errorBorder: OutlineInputBorder(
                       borderSide: BorderSide(
-                        color: Color(0x00000000),
+                        color: const Color(0x00000000),
                         width: 1.0,
                       ),
                       borderRadius: BorderRadius.circular(12.0),
                     ),
                     focusedErrorBorder: OutlineInputBorder(
                       borderSide: BorderSide(
-                        color: Color(0x00000000),
+                        color: const Color(0x00000000),
                         width: 1.0,
                       ),
                       borderRadius: BorderRadius.circular(12.0),
@@ -1215,6 +1803,23 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                       mainAxisSize: MainAxisSize.max,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        Builder(
+                          builder:
+                              (context) => JarvisIconButton(
+                                borderRadius: 24,
+                                buttonSize: 48,
+                                fillColor: theme.secondary,
+                                icon: const Icon(
+                                  Icons.book_rounded,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                                onPressed: () {
+                                  Scaffold.of(context).openDrawer();
+                                },
+                              ),
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: TextFormField(
                             key: textFieldKey,
@@ -1241,21 +1846,21 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
-                                  color: Color(0x00000000),
+                                  color: const Color(0x00000000),
                                   width: 1,
                                 ),
                                 borderRadius: BorderRadius.circular(24),
                               ),
                               errorBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
-                                  color: Color(0x00000000),
+                                  color: const Color(0x00000000),
                                   width: 1,
                                 ),
                                 borderRadius: BorderRadius.circular(24),
                               ),
                               focusedErrorBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
-                                  color: Color(0x00000000),
+                                  color: const Color(0x00000000),
                                   width: 1,
                                 ),
                                 borderRadius: BorderRadius.circular(24),
@@ -1277,7 +1882,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                               fontWeight: theme.bodyMedium.fontWeight,
                               fontStyle: theme.bodyMedium.fontStyle,
                             ),
-                            maxLines: null, // Allow dynamic growth
+                            maxLines: null,
                             keyboardType: TextInputType.multiline,
                             cursorColor: theme.primary,
                             validator: _model.textControllerValidator,

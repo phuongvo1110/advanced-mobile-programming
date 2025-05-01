@@ -277,7 +277,7 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
             ),
           ),
           Expanded(
-            child: Observer(
+              child: RefreshIndicator(onRefresh: () => _loadAssistants(refresh: true), child: Observer(
               builder: (context) {
                 final assistants =
                     widget.apiStore.kbService.assistants.toList();
@@ -345,6 +345,7 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
               },
             ),
           ),
+            ),
           Align(
             alignment: AlignmentDirectional(0.0, 1.0),
             child: Container(

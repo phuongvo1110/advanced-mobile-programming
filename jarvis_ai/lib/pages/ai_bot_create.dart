@@ -223,11 +223,18 @@ class _AIBotCreaePageWidgetState extends State<AIBotCreatePageWidget> {
 
       final assistant =
           widget.existingAssistantId == null
-              ? await widget.apiStore.kbService.createAssistant(
-                assistantName: name,
-                instructions: instructions,
-                description: description,
-              )
+              ? _model.selectedFiles.isEmpty
+                  ? await widget.apiStore.kbService.createAssistant(
+                    assistantName: name,
+                    instructions: instructions,
+                    description: description,
+                  )
+                  : await widget.apiStore.kbService.uploadFileCreateBot(
+                    assistantName: name,
+                    description: description,
+                    instructions: instructions,
+                    files: _model.selectedFiles,
+                  )
               : await widget.apiStore.kbService.updateAssistant(
                 assistantId: widget.existingAssistantId!,
                 assistantName: name,
@@ -245,18 +252,6 @@ class _AIBotCreaePageWidgetState extends State<AIBotCreatePageWidget> {
             ),
           ),
         );
-      }
-      if (_model.selectedFiles.isNotEmpty) {
-        final responseUpload = await widget.apiStore.kbService
-            .uploadFileCreateBot(
-              assistantName: name,
-              description: description,
-              instructions: instructions,
-              files: _model.selectedFiles,
-            );
-        if (responseUpload == null) {
-          throw Exception('Failed to upload files');
-        }
       }
       if (widget.existingAssistantId == null) {
         await Navigator.push(

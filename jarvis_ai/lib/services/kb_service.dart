@@ -9,6 +9,7 @@ import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:jarvis_ai/models/assistant.dart';
 import 'package:jarvis_ai/models/knowledgebase.dart';
 import 'package:jarvis_ai/models/thread_message.dart';
+import 'package:jarvis_ai/models/unit.dart';
 import 'package:jarvis_ai/models/user.dart';
 import 'package:jarvis_ai/services/api_service.dart';
 import 'package:jarvis_ai/services/exceptions/api_exception.dart';
@@ -54,6 +55,14 @@ abstract class _KBService with Store {
   bool hasMoreGlobalKnowledgeBases = true;
   @observable
   int globalKnowledgeBasePage = 0;
+  @observable
+  ObservableList<Unit> units = ObservableList<Unit>();
+  @observable
+  int unitsPage = 0;
+  @observable
+  bool hasMoreUnits = true;
+  @observable
+  bool isUnitLoading = false;
   @action
   Future<UserModel?> getUser() async {
     String? userJson = await _secureStorage.read(key: 'user');
@@ -248,75 +257,8 @@ abstract class _KBService with Store {
     }
   }
 
-  // @action
-  // Future<dynamic> uploadFileCreateBot({
-  //   required String assistantName,
-  //   required String description,
-  //   required String instructions,
-  //   required List<PlatformFile> files,
-  // }) async {
-  //   try {
-  //     final user = await getUser();
-  //     final request = http.MultipartRequest(
-  //       'POST',
-  //       Uri.parse(
-  //         'https://knowledge-api.dev.jarvis.cx/kb-core/v1/ai-assistant/knowledge/local-file',
-  //       ),
-  //     );
-  //     request.headers.addAll({
-  //       'Authorization': 'Bearer ${user!.accessToken}',
-  //       'priority': 'u=1, i',
-  //       'Content-Type': 'multipart/form-data',
-  //     });
-  //     request.fields['assistantName'] = assistantName;
-  //     request.fields['description'] = description;
-  //     request.fields['instructions'] = instructions;
-
-  //     for (final file in files) {
-  //       print('Processing file: name=${file.name}, path=${file.path}, bytes=${file.bytes?.length}, size=${file.size}');
-  //       if (file.path != null && !Platform.isWeb) {
-  //         final multipartFile = await http.MultipartFile.fromPath(
-  //           'files',
-  //           file.path!,
-  //           filename: file.name,
-  //         );
-  //         request.files.add(multipartFile);
-  //         print('Added file from path: ${file.path}');
-  //       } else if (file.bytes != null) {
-  //         final multipartFile = http.MultipartFile.fromBytes(
-  //           'files',
-  //           file.bytes!,
-  //           filename: file.name,
-  //         );
-  //         request.files.add(multipartFile);
-  //         print('Added file from bytes: ${file.name}');
-  //       } else {
-  //         throw Exception('File ${file.name} has no path or bytes');
-  //       }
-  //     }
-  //     final response = await request.send();
-  //     final responseBody = await response.stream.bytesToString();
-  //     print(
-  //       'Upload file response: $responseBody (status: ${response.statusCode})',
-  //     );
-
-  //     if (response.statusCode >= 200 && response.statusCode < 300) {
-  //       return response;
-  //     } else {
-  //       throw ApiException(
-  //         'Failed to upload file: ${response.reasonPhrase}',
-  //         response.statusCode,
-  //         {'body': responseBody},
-  //       );
-  //     }
-  //   } catch (e) {
-  //     if (e is ApiException && e.statusCode == 401) rethrow;
-  //     print('Error uploading file: $e');
-  //     return null;
-  //   }
-  // }
   @action
-  Future<bool> uploadFileCreateBot({
+  Future<AssistantDetail?> uploadFileCreateBot({
     required String assistantName,
     required String description,
     required String instructions,
@@ -419,7 +361,7 @@ abstract class _KBService with Store {
       );
 
       if (response.statusCode! >= 200 && response.statusCode! < 300) {
-        return true;
+        return AssistantDetail.fromJson(response.data);
       } else {
         throw ApiException(
           'Failed to upload file: ${response.statusMessage}',
@@ -430,7 +372,7 @@ abstract class _KBService with Store {
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) rethrow;
       print('Error uploading file: $e');
-      return false;
+      return null;
     }
   }
 
@@ -596,6 +538,66 @@ abstract class _KBService with Store {
   }
 
   @action
+  Future<void> getKnowledgeUnits({
+    required String knowledgeId,
+    String? search = '',
+    String order = 'DESC',
+    String orderField = 'createdAt',
+    int limit = 20,
+    int offset = 0,
+    bool refresh = false,
+  }) async {
+    if (refresh) {
+      units.clear();
+      unitsPage = 0;
+      hasMoreUnits = true;
+    }
+    if (!hasMoreUnits) return;
+    runInAction(() {
+      isUnitLoading = true;
+    });
+    try {
+      UserModel? user = await getUser();
+      final params = {
+        'q': search ?? '',
+        'order': order,
+        'order_field': orderField,
+        'limit': limit.toString(),
+        'offset': offset.toString(),
+      };
+
+      final queryString = Uri(queryParameters: params).query;
+      print('KnowledgeUnit QueryString: $queryString');
+      final data = await _apiService.get(
+        '/kb-core/v1/knowledge/$knowledgeId/units?$queryString',
+        headers: {
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+      );
+      print('KnowledgeUnit Data: $data');
+      final List<Unit> newUnits =
+          (data['data'] as List).map((item) => Unit.fromJson(item)).toList();
+      if (refresh) units.clear();
+      units.addAll(newUnits);
+      final meta = data['meta'];
+      hasMoreUnits = meta['hasNext'] ?? false;
+      unitsPage++;
+    } catch (e) {
+      print('Error fetching knowledge units: $e');
+      if (e is ApiException && e.statusCode == 401) rethrow;
+    } finally {
+      runInAction(() {
+        isUnitLoading = false;
+      });
+    }
+  }
+  @action
+  Future<void> loadMoreKnowledgeUnits({required String id}) async {
+    if (!hasMoreUnits || isLoading) return;
+    await getKnowledgeUnits(knowledgeId :id, offset: unitsPage * 20);
+  }
+  @action
   Future<void> getGlobalKnowledgeBases({
     int limit = 20,
     int offset = 0,
@@ -663,7 +665,7 @@ abstract class _KBService with Store {
   @action
   Future<bool> attachKnowledgeBase({
     required String assistantId,
-    required String knowledgeId
+    required String knowledgeId,
   }) async {
     try {
       final user = await getUser();
@@ -684,11 +686,12 @@ abstract class _KBService with Store {
       return false;
     }
   }
+
   @action
   Future<AssistantDetail?> updateInstructionAssistant({
     required String assistantId,
     required String instructions,
-    required String assistantName
+    required String assistantName,
   }) async {
     try {
       final user = await getUser();

@@ -222,6 +222,69 @@ mixin _$KBService on _KBService, Store {
     });
   }
 
+  late final _$unitsAtom = Atom(name: '_KBService.units', context: context);
+
+  @override
+  ObservableList<Unit> get units {
+    _$unitsAtom.reportRead();
+    return super.units;
+  }
+
+  @override
+  set units(ObservableList<Unit> value) {
+    _$unitsAtom.reportWrite(value, super.units, () {
+      super.units = value;
+    });
+  }
+
+  late final _$unitsPageAtom =
+      Atom(name: '_KBService.unitsPage', context: context);
+
+  @override
+  int get unitsPage {
+    _$unitsPageAtom.reportRead();
+    return super.unitsPage;
+  }
+
+  @override
+  set unitsPage(int value) {
+    _$unitsPageAtom.reportWrite(value, super.unitsPage, () {
+      super.unitsPage = value;
+    });
+  }
+
+  late final _$hasMoreUnitsAtom =
+      Atom(name: '_KBService.hasMoreUnits', context: context);
+
+  @override
+  bool get hasMoreUnits {
+    _$hasMoreUnitsAtom.reportRead();
+    return super.hasMoreUnits;
+  }
+
+  @override
+  set hasMoreUnits(bool value) {
+    _$hasMoreUnitsAtom.reportWrite(value, super.hasMoreUnits, () {
+      super.hasMoreUnits = value;
+    });
+  }
+
+  late final _$isUnitLoadingAtom =
+      Atom(name: '_KBService.isUnitLoading', context: context);
+
+  @override
+  bool get isUnitLoading {
+    _$isUnitLoadingAtom.reportRead();
+    return super.isUnitLoading;
+  }
+
+  @override
+  set isUnitLoading(bool value) {
+    _$isUnitLoadingAtom.reportWrite(value, super.isUnitLoading, () {
+      super.isUnitLoading = value;
+    });
+  }
+
   late final _$getUserAsyncAction =
       AsyncAction('_KBService.getUser', context: context);
 
@@ -315,7 +378,7 @@ mixin _$KBService on _KBService, Store {
       AsyncAction('_KBService.uploadFileCreateBot', context: context);
 
   @override
-  Future<bool> uploadFileCreateBot(
+  Future<AssistantDetail?> uploadFileCreateBot(
       {required String assistantName,
       required String description,
       required String instructions,
@@ -382,6 +445,37 @@ mixin _$KBService on _KBService, Store {
         threadId: threadId,
         message: message,
         additionalInstruction: additionalInstruction));
+  }
+
+  late final _$getKnowledgeUnitsAsyncAction =
+      AsyncAction('_KBService.getKnowledgeUnits', context: context);
+
+  @override
+  Future<void> getKnowledgeUnits(
+      {required String knowledgeId,
+      String? search = '',
+      String order = 'DESC',
+      String orderField = 'createdAt',
+      int limit = 20,
+      int offset = 0,
+      bool refresh = false}) {
+    return _$getKnowledgeUnitsAsyncAction.run(() => super.getKnowledgeUnits(
+        knowledgeId: knowledgeId,
+        search: search,
+        order: order,
+        orderField: orderField,
+        limit: limit,
+        offset: offset,
+        refresh: refresh));
+  }
+
+  late final _$loadMoreKnowledgeUnitsAsyncAction =
+      AsyncAction('_KBService.loadMoreKnowledgeUnits', context: context);
+
+  @override
+  Future<void> loadMoreKnowledgeUnits({required String id}) {
+    return _$loadMoreKnowledgeUnitsAsyncAction
+        .run(() => super.loadMoreKnowledgeUnits(id: id));
   }
 
   late final _$getGlobalKnowledgeBasesAsyncAction =
@@ -454,7 +548,11 @@ knowledgeBases: ${knowledgeBases},
 messages: ${messages},
 globalKnowledgeBases: ${globalKnowledgeBases},
 hasMoreGlobalKnowledgeBases: ${hasMoreGlobalKnowledgeBases},
-globalKnowledgeBasePage: ${globalKnowledgeBasePage}
+globalKnowledgeBasePage: ${globalKnowledgeBasePage},
+units: ${units},
+unitsPage: ${unitsPage},
+hasMoreUnits: ${hasMoreUnits},
+isUnitLoading: ${isUnitLoading}
     ''';
   }
 }
