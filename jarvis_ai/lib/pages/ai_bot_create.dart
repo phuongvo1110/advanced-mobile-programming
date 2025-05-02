@@ -50,7 +50,6 @@ class AIBotCreatePageModel extends FlutterFlowModel<AIBotCreatePageWidget> {
   @observable
   String? fileError;
   @action
-  @action
   void addFiles(List<PlatformFile> files) {
     selectedFiles.addAll(files);
   }

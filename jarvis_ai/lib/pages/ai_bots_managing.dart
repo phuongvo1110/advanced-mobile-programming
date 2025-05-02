@@ -91,7 +91,7 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load AI Bots: ${e.toString()}')),
+        SnackBar(content: Text('Failed to delete AI Bots: ${e.toString()}')),
       );
     }
   }

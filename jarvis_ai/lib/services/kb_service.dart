@@ -248,12 +248,65 @@ abstract class _KBService with Store {
       return true;
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) rethrow;
-      print('Error deleting prompt: $e');
+      print('Error deleting assistant: $e');
       return false;
     } finally {
       runInAction(() {
         isLoading = false;
       });
+    }
+  }
+
+  @action
+  Future<bool> removeKnowledgeBaseFromBot({
+    required String assistantId,
+    required String knowledgeId,
+  }) async {
+    try {
+      final user = await getUser();
+      final response = await _apiService.delete(
+        '/kb-core/v1/ai-assistant/${assistantId}/knowledges/${knowledgeId}',
+        body: {},
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+      );
+      final index = knowledgeBases.indexWhere((p) => p.id == knowledgeId);
+      if (index != -1) knowledgeBases.removeAt(index);
+      return true;
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error deleting knowledgebase: $e');
+      return false;
+    }
+  }
+
+  @action
+  Future<KnowledgeBase?> createKnowledgeBase({
+    required String name,
+    String? description,
+  }) async {
+    try {
+      final user = await getUser();
+      final requestBody = {'knowledgeName': name, 'description': description};
+      print('$requestBody');
+      final response = await _apiService.post(
+        '/kb-core/v1/knowledge',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+        body: requestBody,
+      );
+      print('Response: $response');
+      return KnowledgeBase.fromJson(response);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error creating knowledgebase: $e');
+      return null;
     }
   }
 
@@ -287,7 +340,22 @@ abstract class _KBService with Store {
         );
         // Validate file type
         final fileExtension = file.name.split('.').last.toLowerCase();
-        if (!['docx', 'pdf', 'txt'].contains(fileExtension)) {
+        if (![
+          'docx',
+          'pdf',
+          '.c',
+          '.cpp',
+          '.html',
+          '.java',
+          '.json',
+          '.md',
+          '.php',
+          '.pptx',
+          '.py',
+          '.rb',
+          '.tex',
+          '.txt',
+        ].contains(fileExtension)) {
           throw Exception('Unsupported file type: ${file.name}');
         }
         // Validate file size (e.g., < 10MB)
@@ -362,6 +430,116 @@ abstract class _KBService with Store {
 
       if (response.statusCode! >= 200 && response.statusCode! < 300) {
         return AssistantDetail.fromJson(response.data);
+      } else {
+        throw ApiException(
+          'Failed to upload file: ${response.statusMessage}',
+          response.statusCode!,
+          {'body': response.data},
+        );
+      }
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error uploading file: $e');
+      return null;
+    }
+  }
+
+  @action
+  Future<Unit?> uploadFileToKnowledgeBase({
+    required String knowledgeId,
+    required List<PlatformFile> files,
+  }) async {
+    try {
+      if (files.isEmpty) {
+        throw Exception('No files provided for upload');
+      }
+
+      final user = await getUser();
+      final dioClient = dio.Dio();
+      final formData = dio.FormData();
+
+      // Add files
+      for (final file in files) {
+        final fileExtension = file.name.split('.').last.toLowerCase();
+        if (![
+          'docx',
+          'pdf',
+          '.c',
+          '.cpp',
+          '.html',
+          '.java',
+          '.json',
+          '.md',
+          '.php',
+          '.pptx',
+          '.py',
+          '.rb',
+          '.tex',
+          '.txt',
+        ].contains(fileExtension)) {
+          throw Exception('Unsupported file type: ${file.name}');
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          throw Exception('File ${file.name} exceeds 10MB limit');
+        }
+        if (file.path != null && !Platform.isWeb) {
+          // Non-web platforms: use file path
+          final fileObj = File(file.path!);
+          if (!await fileObj.exists()) {
+            throw Exception('File ${file.name} does not exist at ${file.path}');
+          }
+          final fileLength = await fileObj.length();
+          print('File exists: true, length: $fileLength');
+          final mimeType =
+              lookupMimeType(file.name) ?? 'application/octet-stream';
+          formData.files.add(
+            MapEntry(
+              'file',
+              await dio.MultipartFile.fromFile(
+                file.path!,
+                filename: file.name,
+                contentType: http_parser.MediaType.parse(mimeType),
+              ),
+            ),
+          );
+          print('Added file from path: ${file.path}, MIME: $mimeType');
+        } else if (file.bytes != null) {
+          // Web platform
+          final mimeType =
+              lookupMimeType(file.name) ?? 'application/octet-stream';
+          formData.files.add(
+            MapEntry(
+              'file',
+              dio.MultipartFile.fromBytes(
+                file.bytes!,
+                filename: file.name,
+                contentType: http_parser.MediaType.parse(mimeType),
+              ),
+            ),
+          );
+          print('Added file from bytes: ${file.name}, MIME: $mimeType');
+        } else {
+          throw Exception('File ${file.name} has no path or bytes');
+        }
+      }
+      final response = await dioClient.post(
+        'https://knowledge-api.dev.jarvis.cx/kb-core/v1/knowledge/$knowledgeId/local-file',
+        data: formData,
+        options: dio.Options(
+          headers: {
+            'Authorization': 'Bearer ${user!.accessToken}',
+            'Content-Type': 'multipart/form-data',
+            'x-jarvis-guid': '',
+          },
+        ),
+      );
+
+      print(
+        'Upload file response: ${response.data} (status: ${response.statusCode})',
+      );
+
+      if (response.statusCode! >= 200 && response.statusCode! < 300) {
+        return Unit.fromJson(response.data);
       } else {
         throw ApiException(
           'Failed to upload file: ${response.statusMessage}',
@@ -592,11 +770,13 @@ abstract class _KBService with Store {
       });
     }
   }
+
   @action
   Future<void> loadMoreKnowledgeUnits({required String id}) async {
     if (!hasMoreUnits || isLoading) return;
-    await getKnowledgeUnits(knowledgeId :id, offset: unitsPage * 20);
+    await getKnowledgeUnits(knowledgeId: id, offset: unitsPage * 20);
   }
+
   @action
   Future<void> getGlobalKnowledgeBases({
     int limit = 20,

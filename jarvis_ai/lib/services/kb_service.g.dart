@@ -374,6 +374,27 @@ mixin _$KBService on _KBService, Store {
         .run(() => super.deleteAssistant(id: id));
   }
 
+  late final _$removeKnowledgeBaseFromBotAsyncAction =
+      AsyncAction('_KBService.removeKnowledgeBaseFromBot', context: context);
+
+  @override
+  Future<bool> removeKnowledgeBaseFromBot(
+      {required String assistantId, required String knowledgeId}) {
+    return _$removeKnowledgeBaseFromBotAsyncAction.run(() => super
+        .removeKnowledgeBaseFromBot(
+            assistantId: assistantId, knowledgeId: knowledgeId));
+  }
+
+  late final _$createKnowledgeBaseAsyncAction =
+      AsyncAction('_KBService.createKnowledgeBase', context: context);
+
+  @override
+  Future<KnowledgeBase?> createKnowledgeBase(
+      {required String name, String? description}) {
+    return _$createKnowledgeBaseAsyncAction.run(
+        () => super.createKnowledgeBase(name: name, description: description));
+  }
+
   late final _$uploadFileCreateBotAsyncAction =
       AsyncAction('_KBService.uploadFileCreateBot', context: context);
 
@@ -388,6 +409,16 @@ mixin _$KBService on _KBService, Store {
         description: description,
         instructions: instructions,
         files: files));
+  }
+
+  late final _$uploadFileToKnowledgeBaseAsyncAction =
+      AsyncAction('_KBService.uploadFileToKnowledgeBase', context: context);
+
+  @override
+  Future<Unit?> uploadFileToKnowledgeBase(
+      {required String knowledgeId, required List<PlatformFile> files}) {
+    return _$uploadFileToKnowledgeBaseAsyncAction.run(() => super
+        .uploadFileToKnowledgeBase(knowledgeId: knowledgeId, files: files));
   }
 
   late final _$getKnowledgeBasesAsyncAction =

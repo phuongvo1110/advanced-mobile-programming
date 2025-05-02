@@ -1,3 +1,5 @@
+import 'package:confirm_dialog/confirm_dialog.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:intl/intl.dart';
@@ -15,6 +17,7 @@ import 'package:jarvis_ai/theme/jarvis_theme.dart';
 import 'package:jarvis_ai/components/card_prompt_widget.dart';
 import 'package:jarvis_ai/theme/flutter_flow_choice_chips.dart';
 import 'package:jarvis_ai/theme/form_field_controller.dart';
+import 'package:mobx/mobx.dart';
 
 class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
   FocusNode? textFieldFocusNode;
@@ -39,9 +42,24 @@ class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
   FormFieldController<List<String>>? choiceChipsController;
   String? get choiceChipsValue => choiceChipsController?.value?.firstOrNull;
   FocusNode? knowledgeUnitsSearchFieldFocusNode;
+  FocusNode? knowledgeBasesSearchFieldFocusNode;
   TextEditingController? knowledgeUnitsSearchController;
+  TextEditingController? knowledgeBasesSearchController;
   set choiceChipsValue(String? val) =>
       choiceChipsController?.value = val != null ? [val] : [];
+  @observable
+  ObservableList<PlatformFile> selectedFiles = ObservableList<PlatformFile>();
+  @observable
+  String? fileError;
+  @action
+  void addFiles(List<PlatformFile> files) {
+    selectedFiles.addAll(files);
+  }
+
+  @action
+  void removeFile(PlatformFile file) {
+    selectedFiles.remove(file);
+  }
 
   @override
   void initState(BuildContext context) {
@@ -63,6 +81,8 @@ class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
     choiceChipsController = FormFieldController<List<String>>(['All']);
     knowledgeUnitsSearchController = TextEditingController();
     knowledgeUnitsSearchFieldFocusNode = FocusNode();
+    knowledgeBasesSearchFieldFocusNode = FocusNode();
+    knowledgeBasesSearchController = TextEditingController();
   }
 
   @override
@@ -181,6 +201,48 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     });
   }
 
+  Future<void> _pickFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: [
+          'docx',
+          'pdf',
+          '.c',
+          '.cpp',
+          '.html',
+          '.java',
+          '.json',
+          '.md',
+          '.php',
+          '.pptx',
+          '.py',
+          '.rb',
+          '.tex',
+          '.txt',
+        ],
+        allowMultiple: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        final files = result.files;
+        files.forEach(
+          (file) => print(
+            'Picked file: name=${file.name}, path=${file.path}, bytes=${file.bytes?.length}, size=${file.size}',
+          ),
+        );
+        setState(() {
+          _model.addFiles(files);
+        });
+      } else {
+        print('No file picked');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to pick file: $e')));
+    }
+  }
+
   Future<void> _loadPrompts({bool refresh = false}) async {
     try {
       await widget.apiStore.jarvisService.getPrompts(
@@ -217,6 +279,31 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load Units: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _removeKnowledgebase(String id) async {
+    try {
+      final result = await widget.apiStore.kbService.removeKnowledgeBaseFromBot(
+        assistantId: widget.existingAssistant!,
+        knowledgeId: id,
+      );
+      if (result) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Knowledge base removed successfully')),
+        );
+        await _fetchKnowledgeBases(refresh: true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to remove knowledge base')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete knowledgebase: ${e.toString()}'),
+        ),
       );
     }
   }
@@ -327,6 +414,244 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to toggle favorite: $e')));
     }
+  }
+
+  void _showCreateKnowledgeBaseDialog() {
+    final TextEditingController knowledgeBaseNameController =
+        TextEditingController();
+    final TextEditingController knowledgeBaseDescriptionController =
+        TextEditingController();
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final theme = JarvisTheme.of(context);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Create a Knowledge Base', style: theme.titleMedium),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 24),
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                    },
+                  ),
+                ],
+              ),
+              content: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Knowledge Base Name',
+                            style: theme.bodyMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Text(' *', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: knowledgeBaseNameController,
+                        maxLength: 50,
+                        decoration: InputDecoration(
+                          hintText:
+                              'Enter a unique name for your knowledge base',
+                          hintStyle: theme.bodyMedium.copyWith(
+                            color: theme.secondaryText,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: theme.alternate),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: theme.primary),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Colors.red),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Colors.red),
+                          ),
+                          counterText: '',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Name is required';
+                          }
+                          if (value.length > 50) {
+                            return 'Name cannot exceed 50 characters';
+                          }
+                          // Simulate checking for uniqueness
+                          if (widget.apiStore.kbService.globalKnowledgeBases
+                              .any((kb) => kb.knowledgeName == value.trim())) {
+                            return 'Name must be unique';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${knowledgeBaseNameController.text.length}/50 characters',
+                          style: theme.bodySmall.copyWith(
+                            color: theme.secondaryText,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Description',
+                        style: theme.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: knowledgeBaseDescriptionController,
+                        maxLength: 500,
+                        maxLines: 5,
+                        decoration: InputDecoration(
+                          hintText:
+                              'Briefly describe the purpose of the knowledge base (e.g., Jarvis AI\'s knowledge base...)',
+                          hintStyle: theme.bodyMedium.copyWith(
+                            color: theme.secondaryText,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: theme.alternate),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: theme.primary),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Colors.red),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Colors.red),
+                          ),
+                          counterText: '',
+                        ),
+                        validator: (value) {
+                          if (value != null && value.length > 500) {
+                            return 'Description cannot exceed 500 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${knowledgeBaseDescriptionController.text.length}/500 characters',
+                          style: theme.bodySmall.copyWith(
+                            color: theme.secondaryText,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.grey[200],
+                    foregroundColor: theme.primaryText,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (formKey.currentState!.validate()) {
+                      // Simulate creating a knowledge base
+                      final newKnowledgeBase = await widget.apiStore.kbService
+                          .createKnowledgeBase(
+                            name: knowledgeBaseNameController.text.trim(),
+                            description:
+                                knowledgeBaseDescriptionController.text.trim(),
+                          );
+                      if (newKnowledgeBase != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Knowledge base created successfully',
+                            ),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Knowledge base created failed'),
+                          ),
+                        );
+                      }
+                      Navigator.of(dialogContext).pop();
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.primary,
+                    foregroundColor: theme.info,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                  ),
+                  child: const Text('Create'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    // Add listeners for character count updates
+    knowledgeBaseNameController.addListener(() {
+      setState(() {});
+    });
+    knowledgeBaseDescriptionController.addListener(() {
+      setState(() {});
+    });
   }
 
   void _showPromptDialog(Prompt prompt, BuildContext dialogContext) {
@@ -486,6 +811,340 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     );
   }
 
+  void showAddLocalFile(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Import local files'),
+          content: SizedBox(
+            width: double.infinity,
+            child: SingleChildScrollView(
+              child: IntrinsicHeight(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: JarvisTheme.of(context).secondaryBackground,
+                          borderRadius: BorderRadius.circular(12.0),
+                          border: Border.all(
+                            color: JarvisTheme.of(context).alternate,
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.max,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Upload documents',
+                                    style: JarvisTheme.of(
+                                      context,
+                                    ).bodyMedium.override(
+                                      fontFamily: 'Inter',
+                                      color:
+                                          JarvisTheme.of(context).primaryText,
+                                      letterSpacing: 0.0,
+                                    ),
+                                  ),
+                                  JarvisIconButton(
+                                    borderRadius: 20.0,
+                                    buttonSize: 40.0,
+                                    icon: Icon(
+                                      Icons.add_circle_outline_rounded,
+                                      color: JarvisTheme.of(context).primary,
+                                      size: 24.0,
+                                    ),
+                                    onPressed: () {
+                                      _pickFile();
+                                    },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16.0),
+                              Divider(
+                                height: 1.0,
+                                thickness: 1.0,
+                                color: JarvisTheme.of(context).alternate,
+                              ),
+                              const SizedBox(height: 16.0),
+                              if (_model.fileError != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: Text(
+                                    _model.fileError!,
+                                    style: JarvisTheme.of(
+                                      context,
+                                    ).bodySmall.copyWith(
+                                      color: JarvisTheme.of(context).error,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 8.0),
+                              Observer(
+                                builder:
+                                    (_) =>
+                                        _model.selectedFiles.isEmpty
+                                            ? Row(
+                                              mainAxisSize: MainAxisSize.max,
+                                              children: [
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsetsDirectional.fromSTEB(
+                                                        12.0,
+                                                        0.0,
+                                                        12.0,
+                                                        0.0,
+                                                      ),
+                                                  child: Icon(
+                                                    Icons.description_outlined,
+                                                    color:
+                                                        JarvisTheme.of(
+                                                          context,
+                                                        ).secondaryText,
+                                                    size: 24.0,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  'No documents uploaded yet',
+                                                  style: JarvisTheme.of(
+                                                    context,
+                                                  ).bodyMedium.override(
+                                                    fontFamily: 'Inter',
+                                                    color:
+                                                        JarvisTheme.of(
+                                                          context,
+                                                        ).secondaryText,
+                                                    letterSpacing: 0.0,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                            : Column(
+                                              children:
+                                                  _model.selectedFiles.map((
+                                                    file,
+                                                  ) {
+                                                    return Padding(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 8.0,
+                                                          ),
+                                                      child: Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.max,
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .spaceBetween,
+                                                        children: [
+                                                          Row(
+                                                            children: [
+                                                              Padding(
+                                                                padding:
+                                                                    const EdgeInsetsDirectional.fromSTEB(
+                                                                      12.0,
+                                                                      0.0,
+                                                                      12.0,
+                                                                      0.0,
+                                                                    ),
+                                                                child: Icon(
+                                                                  Icons
+                                                                      .description_outlined,
+                                                                  color:
+                                                                      JarvisTheme.of(
+                                                                        context,
+                                                                      ).primaryText,
+                                                                  size: 24.0,
+                                                                ),
+                                                              ),
+                                                              Text(
+                                                                file.name,
+                                                                style: JarvisTheme.of(
+                                                                  context,
+                                                                ).bodyMedium.override(
+                                                                  fontFamily:
+                                                                      'Inter',
+                                                                  color:
+                                                                      JarvisTheme.of(
+                                                                        context,
+                                                                      ).primaryText,
+                                                                  letterSpacing:
+                                                                      0.0,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          JarvisIconButton(
+                                                            borderRadius: 20.0,
+                                                            buttonSize: 40.0,
+                                                            icon: Icon(
+                                                              Icons
+                                                                  .delete_outline,
+                                                              color:
+                                                                  JarvisTheme.of(
+                                                                    context,
+                                                                  ).error,
+                                                              size: 24.0,
+                                                            ),
+                                                            onPressed: () {
+                                                              setState(() {
+                                                                _model
+                                                                    .removeFile(
+                                                                      file,
+                                                                    );
+                                                              });
+                                                            },
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                  }).toList(),
+                                            ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Close'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            Observer(
+              builder: (_) => ElevatedButton(
+              onPressed:
+                  _model.selectedFiles.isEmpty
+                      ? null
+                      : () async {
+                        try {
+                          await widget.apiStore.kbService
+                              .uploadFileToKnowledgeBase(
+                                files: _model.selectedFiles,
+                                knowledgeId: selectedKnowledgeBaseId!,
+                              );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Files imported successfully'),
+                            ),
+                          );
+                          Navigator.pop(context);
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to import files: $e'),
+                            ),
+                          );
+                        }
+                      },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Import'),
+            ),
+          
+            )
+            ],
+        );
+      },
+    );
+  }
+
+  void showAddKnowledgeUnitDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select Knowledge Source'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                ListTile(
+                  leading: const Icon(Icons.file_upload),
+                  title: const Text('Local files'),
+                  subtitle: const Text('Upload pdf, docx, ...'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    showAddLocalFile(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.language),
+                  title: const Text('Website'),
+                  subtitle: const Text('Connect Website to get data'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // Handle website connection logic here
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.cloud),
+                  title: const Text('Google Drive'),
+                  subtitle: const Text('Coming soon'),
+                  enabled: false,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.code),
+                  title: const Text('GitHub Repository'),
+                  subtitle: const Text('Connect to GitHub repositories'),
+                  enabled: false,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.code),
+                  title: const Text('GitLab Repository'),
+                  subtitle: const Text('Connect to GitLab repositories'),
+                  enabled: false,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.chat),
+                  title: const Text('Slack'),
+                  subtitle: const Text('Connect to Slack workspace'),
+                  enabled: false,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.description),
+                  title: const Text('Confluence'),
+                  subtitle: const Text('Connect to Confluence'),
+                  enabled: false,
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Close'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _sendMessageWithPrompt({
     required String promptContent,
     required String userInput,
@@ -629,7 +1288,10 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
 
   Future<void> _fetchGlobalKnowledgeBases({bool refresh = false}) async {
     try {
-      await widget.apiStore.kbService.getGlobalKnowledgeBases(refresh: refresh);
+      await widget.apiStore.kbService.getGlobalKnowledgeBases(
+        refresh: refresh,
+        search: _model.knowledgeBasesSearchController?.text ?? '',
+      );
     } catch (e) {
       print('Error fetching global knowledge bases: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -925,8 +1587,8 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                                   _handleFavoriteToggle(prompt.id);
                                 },
                                 jarvisService: widget.apiStore.jarvisService,
-                                onEditPressed: () {
-                                  Navigator.push(
+                                onEditPressed: () async {
+                                  final result = await Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) {
@@ -937,6 +1599,9 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                                       },
                                     ),
                                   );
+                                  if (result == true) {
+                                    await _loadPrompts(refresh: true);
+                                  }
                                 },
                                 onTap: () {
                                   print('Prompt tapped: ${prompt.title}');
@@ -975,8 +1640,14 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                       16.0,
                     ),
                     child: FFButtonWidget(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/create-prompt');
+                      onPressed: () async {
+                        final result = await Navigator.pushNamed(
+                          context,
+                          '/create-prompt',
+                        );
+                        if (result == true) {
+                          await _loadPrompts(refresh: true);
+                        }
                       },
                       text: 'Create New Prompt',
                       options: FFButtonOptions(
@@ -1070,6 +1741,12 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                         child: TextFormField(
                           controller: _model.knowledgeUnitsSearchController,
                           focusNode: _model.knowledgeUnitsSearchFieldFocusNode,
+                          onChanged: (value) {
+                            _fetchUnits(
+                              knowledgeId: selectedKnowledgeBaseId!,
+                              refresh: true,
+                            );
+                          },
                           decoration: InputDecoration(
                             hintText: 'Search units...',
                             hintStyle: theme.labelMedium,
@@ -1202,7 +1879,8 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                         padding: const EdgeInsets.all(16),
                         child: ElevatedButton(
                           onPressed: () {
-                            // Implement add knowledge unit logic
+                            Navigator.pop(context);
+                            showAddKnowledgeUnitDialog(context);
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: theme.primary,
@@ -1221,89 +1899,188 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                 : Drawer(
                   width: 300,
                   backgroundColor: theme.secondaryBackground,
-                  child: Expanded(
-                    child: RefreshIndicator(
-                      child: Observer(
-                        builder: (context) {
-                          final kbService = widget.apiStore.kbService;
-                          if (kbService.isLoading &&
-                              kbService.globalKnowledgeBases.isEmpty) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          }
-                          if (kbService.globalKnowledgeBases.isEmpty) {
-                            return const Center(
-                              child: Text('No knowledge bases found'),
-                            );
-                          }
-                          return SingleChildScrollView(
-                            controller: _model.drawerScrollController,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Text(
-                                    'Available Knowledge Bases',
-                                    style: theme.titleMedium,
-                                  ),
-                                ),
-                                ...kbService.globalKnowledgeBases.map(
-                                  (kb) => Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 8,
-                                    ),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: theme.primaryBackground,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: theme.alternate,
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: ListTile(
-                                        title: Text(
-                                          kb.knowledgeName ?? 'Untitled',
-                                          style: theme.bodyLarge,
-                                        ),
-                                        subtitle: Text(
-                                          'Last updated: ${DateFormat('MMM d, yyyy').format(DateTime.parse(kb.updatedAt ?? DateTime.now().toIso8601String()))}',
-                                          style: theme.bodySmall.copyWith(
-                                            color: theme.secondaryText,
-                                          ),
-                                        ),
-                                        trailing: IconButton(
-                                          icon: Icon(
-                                            Icons.add,
-                                            color: theme.primary,
-                                          ),
-                                          onPressed:
-                                              () => _attachKnowledgeBase(
-                                                kb.id as String,
-                                              ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (kbService.isLoading)
-                                  const Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: Center(
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                  ),
-                              ],
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: TextFormField(
+                          controller: _model.knowledgeBasesSearchController,
+                          focusNode: _model.knowledgeBasesSearchFieldFocusNode,
+                          onChanged: (value) {
+                            _fetchGlobalKnowledgeBases(refresh: true);
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Search knowledge bases...',
+                            hintStyle: theme.labelMedium,
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: theme.alternate),
                             ),
-                          );
-                        },
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: theme.alternate),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: theme.primary),
+                            ),
+                          ),
+                        ),
                       ),
-                      onRefresh:
-                          () => _fetchGlobalKnowledgeBases(refresh: true),
-                    ),
+
+                      Expanded(
+                        child: RefreshIndicator(
+                          child: Observer(
+                            builder: (context) {
+                              final kbService = widget.apiStore.kbService;
+                              if (kbService.isLoading &&
+                                  kbService.globalKnowledgeBases.isEmpty) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              }
+                              if (kbService.globalKnowledgeBases.isEmpty) {
+                                return const Center(
+                                  child: Text('No knowledge bases found'),
+                                );
+                              }
+                              return SingleChildScrollView(
+                                controller: _model.drawerScrollController,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Text(
+                                        'Available Knowledge Bases',
+                                        style: theme.titleMedium,
+                                      ),
+                                    ),
+                                    ...kbService.globalKnowledgeBases.map(
+                                      (kb) => Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 8,
+                                        ),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: theme.primaryBackground,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: Border.all(
+                                              color: theme.alternate,
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: ListTile(
+                                            title: Text(
+                                              kb.knowledgeName ?? 'Untitled',
+                                              style: theme.bodyLarge,
+                                            ),
+                                            subtitle: Text(
+                                              'Last updated: ${DateFormat('MMM d, yyyy').format(DateTime.parse(kb.updatedAt ?? DateTime.now().toIso8601String()))}',
+                                              style: theme.bodySmall.copyWith(
+                                                color: theme.secondaryText,
+                                              ),
+                                            ),
+                                            trailing: IconButton(
+                                              icon: Icon(
+                                                Icons.add,
+                                                color: theme.primary,
+                                              ),
+                                              onPressed:
+                                                  () => _attachKnowledgeBase(
+                                                    kb.id as String,
+                                                  ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    if (kbService.isLoading)
+                                      const Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child: Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                          onRefresh:
+                              () => _fetchGlobalKnowledgeBases(refresh: true),
+                        ),
+                      ),
+                      Align(
+                        alignment: AlignmentDirectional(0.0, 1.0),
+                        child: Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Color(0x00FFFFFF),
+                                JarvisTheme.of(context).primaryBackground,
+                              ],
+                              stops: [0.0, 1.0],
+                              begin: AlignmentDirectional(-1.0, 0.0),
+                              end: AlignmentDirectional(1.0, 0),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsetsDirectional.fromSTEB(
+                              16.0,
+                              16.0,
+                              16.0,
+                              16.0,
+                            ),
+                            child: FFButtonWidget(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                _showCreateKnowledgeBaseDialog();
+                              },
+                              text: 'Create Knowledge Base',
+                              options: FFButtonOptions(
+                                width: double.infinity,
+                                height: 50.0,
+                                padding: EdgeInsetsDirectional.fromSTEB(
+                                  16.0,
+                                  0.0,
+                                  16.0,
+                                  0.0,
+                                ),
+                                iconPadding: EdgeInsetsDirectional.fromSTEB(
+                                  0.0,
+                                  0.0,
+                                  0.0,
+                                  0.0,
+                                ),
+                                color: JarvisTheme.of(context).secondary,
+                                textStyle: JarvisTheme.of(
+                                  context,
+                                ).titleSmall.override(
+                                  fontFamily: 'Inter Tight',
+                                  color: JarvisTheme.of(context).info,
+                                  letterSpacing: 0.0,
+                                ),
+                                elevation: 0.0,
+                                borderSide: BorderSide(
+                                  color: Colors.transparent,
+                                  width: 1.0,
+                                ),
+                                borderRadius: BorderRadius.circular(12.0),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
         body: Column(
@@ -1495,11 +2272,23 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                                         borderRadius: 20,
                                         buttonSize: 40,
                                         icon: Icon(
-                                          Icons.edit,
-                                          color: theme.primaryText,
+                                          Icons.delete,
+                                          color: theme.error,
                                           size: 24,
                                         ),
-                                        onPressed: () {},
+                                        onPressed: () async {
+                                          if (await confirm(
+                                            context,
+                                            title: Text('Remove Confirm'),
+                                            content: Text(
+                                              'Do you want to remove ${kb.knowledgeName}',
+                                            ),
+                                            textOK: Text('Yes'),
+                                            textCancel: Text('No'),
+                                          )) {
+                                            _removeKnowledgebase(kb.id!);
+                                          }
+                                        },
                                       ),
                                     ],
                                   ),

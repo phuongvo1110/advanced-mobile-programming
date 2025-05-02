@@ -191,12 +191,12 @@ class _PrompCreatingPageWidgetState extends State<PromptCreatingPage> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Prompt created successfully!')));
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       } else {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Prompt updated successfully!')));
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       }
     } catch (e) {
       ScaffoldMessenger.of(
