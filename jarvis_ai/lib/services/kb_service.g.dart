@@ -421,6 +421,39 @@ mixin _$KBService on _KBService, Store {
         .uploadFileToKnowledgeBase(knowledgeId: knowledgeId, files: files));
   }
 
+  late final _$deleteUnitAsyncAction =
+      AsyncAction('_KBService.deleteUnit', context: context);
+
+  @override
+  Future<bool> deleteUnit(
+      {required String knowledgeId, required String unitId}) {
+    return _$deleteUnitAsyncAction
+        .run(() => super.deleteUnit(knowledgeId: knowledgeId, unitId: unitId));
+  }
+
+  late final _$updateStatusUnitAsyncAction =
+      AsyncAction('_KBService.updateStatusUnit', context: context);
+
+  @override
+  Future<Unit?> updateStatusUnit(
+      {required String unitId, required bool status}) {
+    return _$updateStatusUnitAsyncAction
+        .run(() => super.updateStatusUnit(unitId: unitId, status: status));
+  }
+
+  late final _$uploadWebToKnowledgeBaseAsyncAction =
+      AsyncAction('_KBService.uploadWebToKnowledgeBase', context: context);
+
+  @override
+  Future<Unit?> uploadWebToKnowledgeBase(
+      {required String knowledgeId,
+      required String unitName,
+      required String webUrl}) {
+    return _$uploadWebToKnowledgeBaseAsyncAction.run(() => super
+        .uploadWebToKnowledgeBase(
+            knowledgeId: knowledgeId, unitName: unitName, webUrl: webUrl));
+  }
+
   late final _$getKnowledgeBasesAsyncAction =
       AsyncAction('_KBService.getKnowledgeBases', context: context);
 

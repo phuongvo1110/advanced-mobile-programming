@@ -553,7 +553,88 @@ abstract class _KBService with Store {
       return null;
     }
   }
-
+  @action
+  Future<bool> deleteUnit({
+    required String knowledgeId,
+    required String unitId,
+  }) async {
+    try {
+      final user = await getUser();
+      final response = await _apiService.delete(
+        '/kb-core/v1/knowledge/${knowledgeId}/units/${unitId}',
+        body: {},
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+      );
+      final index = units.indexWhere((p) => p.id == unitId);
+      if (index != -1) units.removeAt(index);
+      return true;
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error deleting unit: $e');
+      return false;
+    } finally {
+      runInAction(() {
+        isLoading = false;
+      });
+    }
+  }
+  @action 
+  Future<Unit?> updateStatusUnit({
+    required String unitId,
+    required bool status,
+  }) async {
+    try {
+      final user = await getUser();
+      final requestBody = {'status': status};
+      final response = await _apiService.patch(
+        '/kb-core/v1/knowledge/units/${unitId}/status',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+        body: requestBody,
+      );
+      return Unit.fromJson(response);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error updating unit status: $e');
+      return null;
+    }
+  }
+  @action 
+  Future<Unit?> uploadWebToKnowledgeBase({
+    required String knowledgeId,
+    required String unitName,
+    required String webUrl
+  }) async {
+    try {
+      final user = await getUser();
+      final requestBody = {
+        'unitName': unitName,
+        'webUrl': webUrl,
+      };
+      final response = await _apiService.post(
+        '/kb-core/v1/knowledge/$knowledgeId/web',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+        body: requestBody,
+      );
+      print('Upload web response: $response');
+      return Unit.fromJson(response);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error uploading web to knowledge base: $e');
+      return null;
+    }
+  }
   @action
   Future<void> getKnowledgeBases({
     required String assistantId,
