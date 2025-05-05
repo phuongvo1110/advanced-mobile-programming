@@ -201,6 +201,7 @@ abstract class _AuthService with Store {
           refreshToken: response['refresh_token'] ?? currentUser!.refreshToken,
         );
         print('Token refreshed successfully!');
+        await _saveUserData();
         return true;
       } else {
         print('Failed to refresh token.');

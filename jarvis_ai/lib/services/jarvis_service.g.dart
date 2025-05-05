@@ -105,6 +105,23 @@ mixin _$JarvisService on _JarvisService, Store {
     });
   }
 
+  late final _$hasMoreConversationsAtom =
+      Atom(name: '_JarvisService.hasMoreConversations', context: context);
+
+  @override
+  bool get hasMoreConversations {
+    _$hasMoreConversationsAtom.reportRead();
+    return super.hasMoreConversations;
+  }
+
+  @override
+  set hasMoreConversations(bool value) {
+    _$hasMoreConversationsAtom.reportWrite(value, super.hasMoreConversations,
+        () {
+      super.hasMoreConversations = value;
+    });
+  }
+
   late final _$promptSearchQueryAtom =
       Atom(name: '_JarvisService.promptSearchQuery', context: context);
 
@@ -245,11 +262,19 @@ mixin _$JarvisService on _JarvisService, Store {
       AsyncAction('_JarvisService.getConversationHistory', context: context);
 
   @override
-  Future<List<Message>?> getConversationHistory(
-      {required String conversationId, String assistantModel = 'dify'}) {
+  Future<List<MessageQuery>?> getConversationHistory(
+      {required String conversationId,
+      String assistantModel = 'dify',
+      required String assistantId,
+      int limit = 20,
+      String cursor = ''}) {
     return _$getConversationHistoryAsyncAction.run(() => super
         .getConversationHistory(
-            conversationId: conversationId, assistantModel: assistantModel));
+            conversationId: conversationId,
+            assistantModel: assistantModel,
+            assistantId: assistantId,
+            limit: limit,
+            cursor: cursor));
   }
 
   late final _$requestSignedUrlAsyncAction =
@@ -293,12 +318,14 @@ mixin _$JarvisService on _JarvisService, Store {
       {required String content,
       required Assistant assistant,
       List<String> files = const [],
-      List<Map<String, dynamic>> conversationHistory = const []}) {
+      List<Map<String, dynamic>> conversationHistory = const [],
+      String? conversationId}) {
     return _$sendMessageAsyncAction.run(() => super.sendMessage(
         content: content,
         assistant: assistant,
         files: files,
-        conversationHistory: conversationHistory));
+        conversationHistory: conversationHistory,
+        conversationId: conversationId));
   }
 
   late final _$getUserAsyncAction =
@@ -326,6 +353,7 @@ prompts: ${prompts},
 conversations: ${conversations},
 currentPage: ${currentPage},
 hasMorePrompts: ${hasMorePrompts},
+hasMoreConversations: ${hasMoreConversations},
 promptSearchQuery: ${promptSearchQuery}
     ''';
   }

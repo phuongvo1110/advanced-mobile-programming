@@ -1,11 +1,9 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:jarvis_ai/components/card_prompt_widget.dart';
 import 'package:jarvis_ai/models/conversation.dart';
 import 'package:jarvis_ai/models/prompt.dart';
-import 'package:jarvis_ai/models/thread_message.dart';
 import 'package:jarvis_ai/models/token.dart';
 import 'package:jarvis_ai/pages/prompt_create._page.dart';
 import 'package:jarvis_ai/stores/api_store.dart';
@@ -16,7 +14,6 @@ import 'package:jarvis_ai/theme/form_field_controller.dart';
 import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
 import 'package:mobx/mobx.dart';
-import 'package:jarvis_ai/models/assistant.dart';
 
 class AssistantOption {
   final String value;
@@ -37,37 +34,37 @@ const List<AssistantOption> predefinedOptions = [
     value: 'claude-3-haiku-20240307',
     label: 'Claude 3 Haiku',
     isCustom: false,
-    model: 'claude-3-haiku-20240307',
+    model: 'dify',
   ),
   AssistantOption(
     value: 'claude-3-5-sonnet-20240620',
     label: 'Claude 3 Sonnet',
     isCustom: false,
-    model: 'claude-3-5-sonnet-20240620',
+    model: 'dify',
   ),
   AssistantOption(
     value: 'gemini-1.5-flash-latest',
     label: 'Gemini 1.5 Flash',
     isCustom: false,
-    model: 'gemini-1.5-flash-latest',
+    model: 'dify',
   ),
   AssistantOption(
     value: 'gemini-1.5-pro-latest',
     label: 'Gemini 1.5 Pro',
     isCustom: false,
-    model: 'gemini-1.5-pro-latest',
+    model: 'dify',
   ),
   AssistantOption(
     value: 'gpt-4o',
     label: 'GPT-4o',
     isCustom: false,
-    model: 'gpt-4o',
+    model: 'dify',
   ),
   AssistantOption(
     value: 'gpt-4o-mini',
     label: 'GPT-4o Mini',
     isCustom: false,
-    model: 'gpt-4o-mini',
+    model: 'dify',
   ),
 ];
 
@@ -79,9 +76,11 @@ class AIChatMessageModel extends FlutterFlowModel<AIMessagePage> {
   OverlayEntry? promptOverlayEntry;
   ScrollController? promptDrawerScrollController;
   bool isPromptDropdownVisible = false;
-
+  ScrollController? conversationDrawerScrollController;
   FocusNode? promptSearchFieldFocusNode;
   TextEditingController? promptSearchController;
+  TextEditingController? conversationSearchController;
+  FocusNode? conversationSearchFieldFocusNode;
   FormFieldController<List<String>>? choiceChipsController;
   String? get choiceChipsValue => choiceChipsController?.value?.firstOrNull;
   set choiceChipsValue(String? val) =>
@@ -105,25 +104,29 @@ class AIChatMessageModel extends FlutterFlowModel<AIMessagePage> {
   void dispose() {
     textFieldFocusNode?.dispose();
     textController?.dispose();
-    promptScrollController = ScrollController();
-    promptDrawerScrollController = ScrollController();
-    promptSearchController = TextEditingController();
-    promptSearchFieldFocusNode = FocusNode();
-    choiceChipsController = FormFieldController<List<String>>(['All']);
-  }
-
-  @override
-  void initState(BuildContext context) {
-    textFieldFocusNode?.dispose();
-    textController?.dispose();
-
-    promptScrollController?.dispose();
+    conversationSearchController?.dispose();
+    conversationSearchFieldFocusNode?.dispose();
+    conversationDrawerScrollController?.dispose();
     promptOverlayEntry?.remove();
     promptOverlayEntry = null;
     promptDrawerScrollController?.dispose();
     promptSearchFieldFocusNode?.dispose();
     promptSearchController?.dispose();
     choiceChipsController?.dispose();
+  }
+
+  @override
+  void initState(BuildContext context) {
+    textFieldFocusNode = FocusNode();
+    textController = TextEditingController();
+    conversationSearchController = TextEditingController();
+    conversationSearchFieldFocusNode = FocusNode();
+    conversationDrawerScrollController = ScrollController();
+    promptScrollController = ScrollController();
+    promptDrawerScrollController = ScrollController();
+    promptSearchController = TextEditingController();
+    promptSearchFieldFocusNode = FocusNode();
+    choiceChipsController = FormFieldController<List<String>>(['All']);
   }
 }
 
@@ -143,18 +146,20 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
   ObservableList<Message> messages = ObservableList<Message>();
   bool isLoading = false;
   AssistantOption? selectedAssistantOption;
+  String? selectedConversationId;
   List<AssistantOption> assistantOptions = [];
   Assistant? currentAssistant;
   Token? currentToken;
   GlobalKey textFieldKey = GlobalKey();
-
+  GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   @override
   void initState() {
     super.initState();
     _model = AIChatMessageModel();
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
-
+    _model.conversationSearchController ??= TextEditingController();
+    _model.conversationSearchFieldFocusNode ??= FocusNode();
     _model.textController!.addListener(_handleTextChange);
     loadUsage();
     _loadAssistants();
@@ -177,6 +182,23 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
         }
       }
     });
+  }
+
+  Future<void> _loadConversations({bool refresh = false}) async {
+    try {
+      await widget.apiStore.jarvisService.getConversations(
+        refresh: refresh,
+        cursor: _model.conversationSearchController!.text ?? '',
+        assistanId: currentAssistant?.id as String,
+        assistantModel: currentAssistant?.model as String,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load conversations: ${e.toString()}'),
+        ),
+      );
+    }
   }
 
   Future<void> _pickFile() async {
@@ -230,15 +252,20 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
   Future<Map<String, dynamic>?> _uploadFile(PlatformFile file) async {
     try {
       // Step 1: Get signed URL for upload
-      final uploadResponse = await widget.apiStore.jarvisService.requestSignedUrl(
-        filename: file.name,
-        mimetype: _getMimeType(file.extension ?? ''),
-      );
+      final uploadResponse = await widget.apiStore.jarvisService
+          .requestSignedUrl(
+            filename: file.name,
+            mimetype: _getMimeType(file.extension ?? ''),
+          );
 
       print('Signed URL Response: $uploadResponse');
 
-      if (uploadResponse == null || uploadResponse['url'] == null || uploadResponse['path'] == null) {
-        throw Exception('Failed to get signed URL or path for upload: Response is invalid');
+      if (uploadResponse == null ||
+          uploadResponse['url'] == null ||
+          uploadResponse['path'] == null) {
+        throw Exception(
+          'Failed to get signed URL or path for upload: Response is invalid',
+        );
       }
 
       final signedUrl = uploadResponse['url'] as String;
@@ -249,21 +276,23 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
       }
 
       // Step 2: Upload the file to the signed URL
-      final uploadResult = await widget.apiStore.jarvisService.uploadFileToSignedUrl(
-        signedUrl: signedUrl,
-        file: file,
-        mimetype: _getMimeType(file.extension ?? ''),
-      );
+      final uploadResult = await widget.apiStore.jarvisService
+          .uploadFileToSignedUrl(
+            signedUrl: signedUrl,
+            file: file,
+            mimetype: _getMimeType(file.extension ?? ''),
+          );
 
       if (!uploadResult) {
         throw Exception('Failed to upload file to storage');
       }
 
       // Step 3: Notify success
-      final successResponse = await widget.apiStore.jarvisService.notifyUploadSuccess(
-        filename: uploadedFilename,
-        mimetype: _getMimeType(file.extension ?? ''),
-      );
+      final successResponse = await widget.apiStore.jarvisService
+          .notifyUploadSuccess(
+            filename: uploadedFilename,
+            mimetype: _getMimeType(file.extension ?? ''),
+          );
 
       print('Upload Success Response: $successResponse');
 
@@ -621,13 +650,15 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
         content: message,
         assistant: currentAssistant!,
         conversationHistory: conversationHistory,
+        conversationId: selectedConversationId
       );
       if (response == null || response?.message == null) {
         setState(() {
           messages.add(
             Message(
               assistant: currentAssistant!,
-              content: "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
+              content:
+                  "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
               role: 'model',
             ),
           );
@@ -640,7 +671,9 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
       setState(() {
         final modelResponse = Message(
           assistant: currentAssistant!,
-          content: response.message ?? "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
+          content:
+              response.message ??
+              "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
           role: 'model',
         );
         messages.add(modelResponse);
@@ -731,7 +764,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
             model: selectedAssistantOption!.model,
             name: selectedAssistantOption!.label,
           );
-          _loadConversationHistory();
+          _loadConversations(refresh: true);
         }
       });
     } catch (e) {
@@ -750,7 +783,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
           model: selectedAssistantOption!.model,
           name: selectedAssistantOption!.label,
         );
-        _loadConversationHistory();
+        // _loadConversationHistory();
       });
     } finally {
       setState(() => isLoading = false);
@@ -783,7 +816,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                 ),
           );
         });
-        await _loadConversationHistory();
+        // await _loadConversationHistory();
       }
     } catch (e) {
       print('Error loading assistant: $e');
@@ -800,30 +833,51 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
           model: selectedAssistantOption!.model,
           name: selectedAssistantOption!.label,
         );
-        _loadConversationHistory();
+        // _loadConversationHistory();
       });
     } finally {
       setState(() => isLoading = false);
     }
   }
 
-  Future<void> _loadConversationHistory() async {
+  Future<void> _loadConversationHistory(String conversationId) async {
     if (currentAssistant == null) return;
 
     setState(() => isLoading = true);
     try {
       final history = await widget.apiStore.jarvisService
           .getConversationHistory(
-            conversationId: currentAssistant!.id as String,
+            conversationId: conversationId,
             assistantModel: currentAssistant!.model,
+            assistantId: currentAssistant!.id as String,
           );
-
       setState(() {
         messages.clear();
         conversationHistory.clear();
         if (history != null && history.isNotEmpty) {
-          messages.addAll(history);
-          conversationHistory = history.map((m) => m.toJson()).toList();
+          for (var item in history) {
+            if (item.query != null) {
+              messages.add(
+                Message(
+                  assistant: currentAssistant!,
+                  content: item.query!,
+                  role: 'user',
+                  // createdAt: item.createdAt,
+                ),
+              );
+            }
+            if (item.answer != null) {
+              messages.add(
+                Message(
+                  assistant: currentAssistant!,
+                  content: item.answer!,
+                  role: 'model',
+                  // createdAt: item.createdAt,
+                ),
+              );
+            }
+          }
+          conversationHistory = messages.map((message) => message.toJson()).toList();
         }
       });
     } catch (e) {
@@ -892,13 +946,15 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
         assistant: currentAssistant!,
         conversationHistory: conversationHistory,
         files: fileUrls,
+        conversationId: selectedConversationId
       );
       if (response == null || response?.message == null) {
         setState(() {
           messages.add(
             Message(
               assistant: currentAssistant!,
-              content: "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
+              content:
+                  "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
               role: 'model',
             ),
           );
@@ -908,12 +964,16 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
       setState(() {
         final modelResponse = Message(
           assistant: currentAssistant!,
-          content: response.message ?? "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
+          content:
+              response.message ??
+              "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
           role: 'model',
         );
         messages.add(modelResponse);
         conversationHistory.addAll([
-          messages[messages.length - (fileUrls.isNotEmpty ? 2 + fileUrls.length : 2)].toJson(),
+          messages[messages.length -
+                  (fileUrls.isNotEmpty ? 2 + fileUrls.length : 2)]
+              .toJson(),
           modelResponse.toJson(),
         ]);
         if (currentToken != null && response.remainingUsage != null) {
@@ -940,7 +1000,15 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
       _scrollToBottom();
     }
   }
+  void _selectConversation(String conversationId) {
+    if (currentAssistant == null) return;
 
+    setState(() {
+      selectedConversationId = conversationId;
+    });
+    _loadConversationHistory(conversationId);
+    Navigator.pop(context);
+  }
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -964,6 +1032,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
   Widget build(BuildContext context) {
     final theme = JarvisTheme.of(context);
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: JarvisTheme.of(context).primaryBackground,
       drawer: Drawer(
         width: 400,
@@ -994,9 +1063,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                 decoration: InputDecoration(
                   hintText: 'Search prompts...',
                   hintStyle: theme.labelMedium,
-                  prefixIcon: const Icon(
-                    Icons.search_rounded,
-                  ),
+                  prefixIcon: const Icon(Icons.search_rounded),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: theme.alternate),
@@ -1227,7 +1294,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
           },
         ),
         title: Text(
-          'Jarvis.AI',
+          'Chat',
           style: JarvisTheme.of(context).displaySmall.override(
             fontFamily: 'Poppins',
             color: JarvisTheme.of(context).primaryText,
@@ -1284,14 +1351,138 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                   );
                   messages.clear();
                   conversationHistory.clear();
-                  _loadConversationHistory();
+                  _loadConversations(refresh: true);
                 });
               }
             },
           ),
+          Builder(
+            builder:
+                (context) => IconButton(
+                  icon: Icon(
+                    Icons.av_timer,
+                    color: JarvisTheme.of(context).info,
+                    size: 26.0,
+                  ),
+                  onPressed: () {
+                    Scaffold.of(context).openEndDrawer();
+                  },
+                ),
+          ),
         ],
         centerTitle: false,
         elevation: 0.0,
+      ),
+      endDrawer: Drawer(
+        width: 400,
+        backgroundColor: theme.secondaryBackground,
+        child: Column(
+          children: [
+            AppBar(
+              backgroundColor: theme.secondaryBackground,
+              automaticallyImplyLeading: false,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  // setState(() {
+                  //   selectedKnowledgeBaseId = null;
+                  //   widget.apiStore.kbService.units.clear();
+                  // });
+                  _scaffoldKey.currentState?.openEndDrawer();
+                },
+              ),
+              title: Text('Chat History', style: theme.titleMedium),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () {
+                    // setState(() {
+                    //   selectedKnowledgeBaseId = null;
+                    //   widget.apiStore.kbService.units.clear();
+                    //   widget.apiStore.kbService.unitsPage = 0;
+                    //   widget.apiStore.kbService.hasMoreUnits = true;
+                    // });
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: TextFormField(
+                controller: _model.conversationSearchController,
+                focusNode: _model.conversationSearchFieldFocusNode,
+                onChanged: (value) {
+                  _loadConversations(refresh: true);
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search message...',
+                  hintStyle: theme.labelMedium,
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: theme.alternate),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: theme.alternate),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: theme.primary),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => _loadConversations(refresh: true),
+                child: Observer(
+                  builder: (context) {
+                    final conversations =
+                        widget.apiStore.jarvisService.conversations.toList();
+                    if (widget.apiStore.jarvisService.isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (conversations.isEmpty &&
+                        !widget.apiStore.jarvisService.isLoading) {
+                      return Center(
+                        child: Text(
+                          'No conversations available',
+                          style: JarvisTheme.of(context).bodyMedium,
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      controller: _model.conversationDrawerScrollController,
+                      itemCount:
+                          widget.apiStore.jarvisService.conversations.length,
+                      itemBuilder: (context, index) {
+                        if (index >=
+                            widget
+                                .apiStore
+                                .jarvisService
+                                .conversations
+                                .length) {
+                          return widget.apiStore.jarvisService.isLoading
+                              ? const Center(child: CircularProgressIndicator())
+                              : const SizedBox.shrink();
+                        }
+
+                        Conversation conversation =
+                            widget.apiStore.jarvisService.conversations[index];
+                        return CardConversationWidget(
+                          conversation: conversation,
+                          onTap: () => _selectConversation(conversation.id),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       body: Column(
         mainAxisSize: MainAxisSize.max,
@@ -1707,5 +1898,129 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
         ),
       ),
     );
+  }
+}
+
+class CardConversationWidget extends StatelessWidget {
+  final Conversation conversation;
+  final VoidCallback onTap;
+
+  const CardConversationWidget({
+    required this.conversation,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      elevation: 0,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Container(
+                //   width: 44,
+                //   height: 44,
+                //   decoration: BoxDecoration(
+                //     color: JarvisTheme.of(context).accent1,
+                //     shape: BoxShape.circle,
+                //     border: Border.all(
+                //       color: JarvisTheme.of(context).primary,
+                //       width: 2,
+                //     ),
+                //   ),
+                //   child: Padding(
+                //     padding: const EdgeInsets.all(2),
+                //     child: ClipRRect(
+                //       borderRadius: BorderRadius.circular(40),
+                //       child: Image.network(
+                //         'https://source.unsplash.com/random/1280x720?ai&${conversation.id}',
+                //         width: 44,
+                //         height: 44,
+                //         fit: BoxFit.cover,
+                //         errorBuilder: (context, error, stackTrace) => Icon(Icons.error, color: Colors.grey),
+                //       ),
+                //     ),
+                //   ),
+                // ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(8, 0, 0, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          conversation.title ?? 'New Conversation',
+                          style: JarvisTheme.of(context).bodyLarge.copyWith(
+                            fontFamily: 'Inter',
+                            letterSpacing: 0.0,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsetsDirectional.fromSTEB(
+                            0,
+                            4,
+                            0,
+                            0,
+                          ),
+                          child: Text(
+                            _formatRelativeTime(conversation.createdAt),
+                            style: JarvisTheme.of(context).labelSmall.copyWith(
+                              fontFamily: 'Inter',
+                              letterSpacing: 0.0,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatRelativeTime(dynamic dateTimeInput) {
+    try {
+      DateTime date;
+      if (dateTimeInput is String) {
+        date = DateTime.parse(dateTimeInput);
+      } else if (dateTimeInput is DateTime) {
+        date = dateTimeInput;
+      } else if (dateTimeInput is int) {
+        date = DateTime.fromMillisecondsSinceEpoch(dateTimeInput);
+      } else {
+        return 'Invalid date';
+      }
+
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inHours < 1) {
+        return 'an hour ago';
+      } else if (difference.inDays < 1) {
+        return 'a day ago';
+      } else if (difference.inDays < 10) {
+        return '${difference.inDays} days ago';
+      } else {
+        return '23 days ago'; // Simplified for this example, adjust as needed
+      }
+    } catch (e) {
+      return 'Invalid date';
+    }
   }
 }

@@ -183,13 +183,13 @@ class HomePage extends StatelessWidget {
                                           MainAxisAlignment.center,
                                       children: [
                                         Icon(
-                                          Icons.history,
+                                          Icons.storage,
                                           color: Color(0xFF06D5CD),
                                           size: 32,
                                         ),
                                         SizedBox(height: 8),
                                         Text(
-                                          'Chat History',
+                                          'Data',
                                           style: JarvisTheme.of(
                                             context,
                                           ).bodyMedium.copyWith(

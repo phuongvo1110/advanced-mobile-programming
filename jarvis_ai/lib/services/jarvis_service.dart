@@ -1,12 +1,14 @@
 // Updated JarvisService using apiService methods
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:jarvis_ai/models/conversation.dart';
 import 'package:jarvis_ai/models/member.dart';
 import 'package:jarvis_ai/models/prompt.dart';
+import 'package:jarvis_ai/models/query_message.dart';
 import 'package:jarvis_ai/models/token.dart';
 import 'package:jarvis_ai/models/user.dart';
 import 'package:jarvis_ai/services/api_service.dart';
@@ -53,7 +55,8 @@ abstract class _JarvisService with Store {
 
   @observable
   bool hasMorePrompts = true;
-
+  @observable
+  bool hasMoreConversations = true;
   @observable
   String? promptSearchQuery;
 
@@ -365,6 +368,7 @@ abstract class _JarvisService with Store {
       };
 
       final queryString = Uri(queryParameters: params).query;
+      print('QueryString: $queryString');
       final response = await _apiService.get(
         '/api/v1/ai-chat/conversations?$queryString',
         headers: {
@@ -391,21 +395,33 @@ abstract class _JarvisService with Store {
   }
 
   @action
-  Future<List<Message>?> getConversationHistory({
+  Future<List<MessageQuery>?> getConversationHistory({
     required String conversationId,
     String assistantModel = 'dify',
+    required String assistantId,
+    int limit = 20,
+    String cursor = '',
   }) async {
     try {
       final user = await getUser();
+      final params = {
+        'limit': limit.toString(),
+        'assistantId': assistantId,
+        'cursor': cursor,
+        'assistantModel': assistantModel,
+      };
+      final queryString = Uri(queryParameters: params).query;
+      print('QueryString: $queryString');
       final response = await _apiService.get(
-        '/api/v1/ai-chat/conversations/$conversationId/messages?assistantModel=$assistantModel',
+        '/api/v1/ai-chat/conversations/$conversationId/messages?$queryString',
         headers: {'Authorization': 'Bearer ${user!.accessToken}'},
       );
+      print('Conversation history: $response');
       if (response == null || response['items'] == null) {
         return null;
       }
       return (response['items'] as List)
-          .map((item) => Message.fromJson(item))
+          .map((item) => MessageQuery.fromJson(item))
           .toList();
     } catch (e) {
       print('Error fetching conversation history: $e');
@@ -491,49 +507,55 @@ abstract class _JarvisService with Store {
   }
 
   @action
-Future<MessageResponse?> sendMessage({
-  required String content,
-  required Assistant assistant,
-  List<String> files = const [],
-  List<Map<String, dynamic>> conversationHistory = const [],
-}) async {
-  try {
-    final user = await getUser();
-    final userMessage = Message(
-      assistant: assistant,
-      content: content,
-      files: files,
-      role: 'user',
-    );
-    final messages =
-        conversationHistory.isEmpty
-            ? [userMessage.toJson()]
-            : [...conversationHistory, userMessage.toJson()];
-    final requestBody = {
-      'content': content,
-      'files': files,
-      'metadata': {
-        'conversation': {'messages': messages},
-      },
-      'assistant': assistant.toJson(),
-    };
+  Future<MessageResponse?> sendMessage({
+    required String content,
+    required Assistant assistant,
+    List<String> files = const [],
+    List<Map<String, dynamic>> conversationHistory = const [],
+    String? conversationId,
+  }) async {
+    try {
+      final user = await getUser();
+      final userMessage = Message(
+        assistant: assistant,
+        content: content,
+        files: files,
+        role: 'user',
+      );
+      final messages =
+          conversationHistory.isEmpty
+              ? [userMessage.toJson()]
+              : [...conversationHistory, userMessage.toJson()];
+      print('Messages: $messages');
+      final requestBody = {
+        'content': content,
+        'files': files,
+        'metadata': {
+          'conversation': {
+            if (conversationId != null) 'id': conversationId,
+            'messages': messages,
+          },
+        },
+        'assistant': assistant.toJson(),
+      };
+      print('Request body: $requestBody');
 
-    final data = await _apiService.post(
-      '/api/v1/ai-chat/messages',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-jarvis-guid': '',
-        'Authorization': 'Bearer ${user!.accessToken}',
-      },
-      body: requestBody,
-    );
-    return MessageResponse.fromJson(data);
-  } catch (e) {
-    if (e is ApiException && e.statusCode == 401) rethrow;
-    print('Error send message: $e');
-    rethrow;
+      final data = await _apiService.post(
+        '/api/v1/ai-chat/messages',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+        body: requestBody,
+      );
+      return MessageResponse.fromJson(data);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error send message: $e');
+      rethrow;
+    }
   }
-}
 
   @action
   Future<UserModel?> getUser() async {
