@@ -21,9 +21,12 @@ class AIBotsManagingPageModel extends FlutterFlowModel<AiBotsManagingPage> {
   FocusNode? textFieldFocusNode;
   TextEditingController? textController;
   String? Function(String?)? textControllerValidator;
-  // State field(s) for DropDown widget.
+  // State field(s) for DropDown widget (Sort).
   String? dropDownValue;
   FormFieldController<String>? dropDownValueController;
+  // State field(s) for DropDown widget (Favorites Filter).
+  String? favoriteFilterValue;
+  FormFieldController<String>? favoriteFilterValueController;
 
   @override
   void initState(BuildContext context) {}
@@ -47,6 +50,8 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
   late AIBotsManagingPageModel _model;
   final ScrollController _scrollController = ScrollController();
   String _selectedSort = 'createdAt';
+  String _selectedFavoriteFilter = 'All'; // New state for favorite filter
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +59,8 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
     _scrollController.addListener(_scrollListener);
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
+    _model.dropDownValueController ??= FormFieldController<String>(_selectedSort);
+    _model.favoriteFilterValueController ??= FormFieldController<String>(_selectedFavoriteFilter);
     _loadAssistants(refresh: true);
   }
 
@@ -69,7 +76,7 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
       await widget.apiStore.kbService.getAssistants(
         refresh: refresh,
         search: _model.textController?.text,
-        isFavorite: false,
+        isFavorite: _selectedFavoriteFilter == 'Favorites' ? true : null,
         isPublished: false,
         order: 'ASC',
         order_field: _selectedSort,
@@ -99,7 +106,6 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
   @override
   void dispose() {
     _model.dispose();
-
     super.dispose();
   }
 
@@ -238,114 +244,157 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                JarvisDropDown<String>(
-                  controller:
-                      _model.dropDownValueController ??=
-                          FormFieldController<String>(_selectedSort),
-                  options: sortOptions.keys.toList(),
-                  onChanged: (String? val) {
-                    if (val == null) return;
-                    setState(() {
-                      _selectedSort = sortOptions[val] as String;
-                    });
-                    _loadAssistants(refresh: true);
-                  },
-                  width: 120.0,
-                  height: 36.0,
-                  textStyle: JarvisTheme.of(context).bodyMedium.override(
-                    fontFamily: 'Inter',
-                    fontSize: 14.0,
-                    letterSpacing: 0.0,
-                  ),
-                  hintText: 'Sort by',
-                  icon: Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: JarvisTheme.of(context).primaryText,
-                    size: 20.0,
-                  ),
-                  fillColor: JarvisTheme.of(context).secondaryBackground,
-                  elevation: 0.0,
-                  borderColor: JarvisTheme.of(context).alternate,
-                  borderWidth: 1.0,
-                  borderRadius: 8.0,
-                  margin: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                  hidesUnderline: true,
-                  isSearchable: false,
-                  isMultiSelect: false,
+                Row(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    JarvisDropDown<String>(
+                      controller:
+                          _model.dropDownValueController ??=
+                              FormFieldController<String>(_selectedSort),
+                      options: sortOptions.keys.toList(),
+                      onChanged: (String? val) {
+                        if (val == null) return;
+                        setState(() {
+                          _selectedSort = sortOptions[val] as String;
+                        });
+                        _loadAssistants(refresh: true);
+                      },
+                      width: 120.0,
+                      height: 36.0,
+                      textStyle: JarvisTheme.of(context).bodyMedium.override(
+                        fontFamily: 'Inter',
+                        fontSize: 14.0,
+                        letterSpacing: 0.0,
+                      ),
+                      hintText: 'Sort by',
+                      icon: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: JarvisTheme.of(context).primaryText,
+                        size: 20.0,
+                      ),
+                      fillColor: JarvisTheme.of(context).secondaryBackground,
+                      elevation: 0.0,
+                      borderColor: JarvisTheme.of(context).alternate,
+                      borderWidth: 1.0,
+                      borderRadius: 8.0,
+                      margin: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 8.0, 0.0),
+                      hidesUnderline: true,
+                      isSearchable: false,
+                      isMultiSelect: false,
+                    ),
+                    SizedBox(width: 12.0),
+                    JarvisDropDown<String>(
+                      controller:
+                          _model.favoriteFilterValueController ??=
+                              FormFieldController<String>(_selectedFavoriteFilter),
+                      options: ['All', 'Favorites'],
+                      onChanged: (String? val) {
+                        if (val == null) return;
+                        setState(() {
+                          _selectedFavoriteFilter = val;
+                        });
+                        _loadAssistants(refresh: true);
+                      },
+                      width: 120.0,
+                      height: 36.0,
+                      textStyle: JarvisTheme.of(context).bodyMedium.override(
+                        fontFamily: 'Inter',
+                        fontSize: 14.0,
+                        letterSpacing: 0.0,
+                      ),
+                      hintText: 'Filter by',
+                      icon: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: JarvisTheme.of(context).primaryText,
+                        size: 20.0,
+                      ),
+                      fillColor: JarvisTheme.of(context).secondaryBackground,
+                      elevation: 0.0,
+                      borderColor: JarvisTheme.of(context).alternate,
+                      borderWidth: 1.0,
+                      borderRadius: 8.0,
+                      margin: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
+                      hidesUnderline: true,
+                      isSearchable: false,
+                      isMultiSelect: false,
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           Expanded(
-              child: RefreshIndicator(onRefresh: () => _loadAssistants(refresh: true), child: Observer(
-              builder: (context) {
-                final assistants =
-                    widget.apiStore.kbService.assistants.toList();
-                if (widget.apiStore.kbService.isLoading) {
-                  return Center(child: CircularProgressIndicator());
-                }
-                if (assistants.isEmpty &&
-                    !widget.apiStore.kbService.isLoading) {
-                  return Center(
-                    child: Text(
-                      'No AI Bots available',
-                      style: JarvisTheme.of(context).bodyMedium,
-                    ),
-                  );
-                }
-                return ListView.builder(
-                  controller: _scrollController,
-                  itemCount:
-                      widget.apiStore.kbService.assistants.length +
-                      (widget.apiStore.kbService.hasMoreAssistants ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index >= widget.apiStore.kbService.assistants.length) {
-                      return widget.apiStore.kbService.isLoading
-                          ? Center(child: CircularProgressIndicator())
-                          : SizedBox.shrink();
-                    }
-                    final assistant =
-                        widget.apiStore.kbService.assistants[index];
-                    return AssistantCardWidget(
-                      assistant: assistant,
-                      onEditPressed: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) {
-                              return PreviewpageWidget(
-                                apiStore: widget.apiStore,
-                                existingAssistant: assistant.id,
-                              );
-                            },
-                          ),
-                        );
-                        // If result is true, refresh assistants
-                        if (result == true) {
-                          await _loadAssistants(refresh: true);
-                        }
-                      },
-                      onDeletePressed: () async {
-                        if (await confirm(
-                          context,
-                          title: Text('Delete Confirm'),
-                          content: Text(
-                            'Do you want to delete ${assistant.assistantName}',
-                          ),
-                          textOK: Text('Yes'),
-                          textCancel: Text('No'),
-                        )) {
-                          _deleteAssistant(assistant.id);
-                        }
-                      },
-                      apiStore: widget.apiStore,
+            child: RefreshIndicator(
+              onRefresh: () => _loadAssistants(refresh: true),
+              child: Observer(
+                builder: (context) {
+                  final assistants =
+                      widget.apiStore.kbService.assistants.toList();
+                  if (widget.apiStore.kbService.isLoading) {
+                    return Center(child: CircularProgressIndicator());
+                  }
+                  if (assistants.isEmpty &&
+                      !widget.apiStore.kbService.isLoading) {
+                    return Center(
+                      child: Text(
+                        'No AI Bots available',
+                        style: JarvisTheme.of(context).bodyMedium,
+                      ),
                     );
-                  },
-                );
-              },
+                  }
+                  return ListView.builder(
+                    controller: _scrollController,
+                    itemCount:
+                        widget.apiStore.kbService.assistants.length +
+                        (widget.apiStore.kbService.hasMoreAssistants ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index >= widget.apiStore.kbService.assistants.length) {
+                        return widget.apiStore.kbService.isLoading
+                            ? Center(child: CircularProgressIndicator())
+                            : SizedBox.shrink();
+                      }
+                      final assistant =
+                          widget.apiStore.kbService.assistants[index];
+                      return AssistantCardWidget(
+                        assistant: assistant,
+                        onEditPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) {
+                                return PreviewpageWidget(
+                                  apiStore: widget.apiStore,
+                                  existingAssistant: assistant.id,
+                                );
+                              },
+                            ),
+                          );
+                          if (result == true) {
+                            await _loadAssistants(refresh: true);
+                          }
+                        },
+                        onDeletePressed: () async {
+                          if (await confirm(
+                            context,
+                            title: Text('Delete Confirm'),
+                            content: Text(
+                              'Do you want to delete ${assistant.assistantName}',
+                            ),
+                            textOK: Text('Yes'),
+                            textCancel: Text('No'),
+                          )) {
+                            _deleteAssistant(assistant.id);
+                          }
+                        },
+                        apiStore: widget.apiStore,
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
-            ),
           Align(
             alignment: AlignmentDirectional(0.0, 1.0),
             child: Container(
@@ -365,7 +414,6 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
                 padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 16.0),
                 child: FFButtonWidget(
                   onPressed: () async {
-                    // Navigate to create page and wait for result
                     final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -376,7 +424,6 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
                         },
                       ),
                     );
-                    // If result is true, refresh assistants
                     if (result == true) {
                       await _loadAssistants(refresh: true);
                     }

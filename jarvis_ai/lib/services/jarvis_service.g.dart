@@ -252,6 +252,39 @@ mixin _$JarvisService on _JarvisService, Store {
             conversationId: conversationId, assistantModel: assistantModel));
   }
 
+  late final _$requestSignedUrlAsyncAction =
+      AsyncAction('_JarvisService.requestSignedUrl', context: context);
+
+  @override
+  Future<dynamic> requestSignedUrl(
+      {required String filename, required String mimetype}) {
+    return _$requestSignedUrlAsyncAction.run(
+        () => super.requestSignedUrl(filename: filename, mimetype: mimetype));
+  }
+
+  late final _$uploadFileToSignedUrlAsyncAction =
+      AsyncAction('_JarvisService.uploadFileToSignedUrl', context: context);
+
+  @override
+  Future<bool> uploadFileToSignedUrl(
+      {required String signedUrl,
+      required PlatformFile file,
+      required String mimetype}) {
+    return _$uploadFileToSignedUrlAsyncAction.run(() => super
+        .uploadFileToSignedUrl(
+            signedUrl: signedUrl, file: file, mimetype: mimetype));
+  }
+
+  late final _$notifyUploadSuccessAsyncAction =
+      AsyncAction('_JarvisService.notifyUploadSuccess', context: context);
+
+  @override
+  Future<dynamic> notifyUploadSuccess(
+      {required String filename, required String mimetype}) {
+    return _$notifyUploadSuccessAsyncAction.run(() =>
+        super.notifyUploadSuccess(filename: filename, mimetype: mimetype));
+  }
+
   late final _$sendMessageAsyncAction =
       AsyncAction('_JarvisService.sendMessage', context: context);
 

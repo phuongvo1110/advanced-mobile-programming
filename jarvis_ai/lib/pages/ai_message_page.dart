@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -18,10 +19,10 @@ import 'package:mobx/mobx.dart';
 import 'package:jarvis_ai/models/assistant.dart';
 
 class AssistantOption {
-  final String value; // ID for custom assistants, model for predefined
+  final String value;
   final String label;
-  final bool isCustom; // True for custom assistants, false for predefined
-  final String model; // 'knowledge-base' for custom, model ID for predefined
+  final bool isCustom;
+  final String model;
 
   const AssistantOption({
     required this.value,
@@ -85,6 +86,21 @@ class AIChatMessageModel extends FlutterFlowModel<AIMessagePage> {
   String? get choiceChipsValue => choiceChipsController?.value?.firstOrNull;
   set choiceChipsValue(String? val) =>
       choiceChipsController?.value = val != null ? [val] : [];
+
+  @observable
+  ObservableList<PlatformFile> selectedFiles = ObservableList<PlatformFile>();
+  @observable
+  String? fileError;
+  @action
+  void addFiles(List<PlatformFile> files) {
+    selectedFiles.addAll(files);
+  }
+
+  @action
+  void removeFile(PlatformFile file) {
+    selectedFiles.remove(file);
+  }
+
   @override
   void dispose() {
     textFieldFocusNode?.dispose();
@@ -161,6 +177,138 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
         }
       }
     });
+  }
+
+  Future<void> _pickFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: [
+          'docx',
+          'pdf',
+          '.c',
+          '.cpp',
+          '.html',
+          '.java',
+          '.json',
+          '.md',
+          '.php',
+          '.pptx',
+          '.py',
+          '.rb',
+          '.tex',
+          '.txt',
+        ],
+        allowMultiple: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        final files = result.files;
+        files.forEach(
+          (file) => print(
+            'Picked file: name=${file.name}, path=${file.path}, bytes=${file.bytes?.length}, size=${file.size}',
+          ),
+        );
+        setState(() {
+          _model.addFiles(files);
+        });
+      } else {
+        print('No file picked');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to pick file: $e')));
+    }
+  }
+
+  void _removeFile(PlatformFile file) {
+    setState(() {
+      _model.removeFile(file);
+    });
+  }
+
+  Future<Map<String, dynamic>?> _uploadFile(PlatformFile file) async {
+    try {
+      // Step 1: Get signed URL for upload
+      final uploadResponse = await widget.apiStore.jarvisService.requestSignedUrl(
+        filename: file.name,
+        mimetype: _getMimeType(file.extension ?? ''),
+      );
+
+      print('Signed URL Response: $uploadResponse');
+
+      if (uploadResponse == null || uploadResponse['url'] == null || uploadResponse['path'] == null) {
+        throw Exception('Failed to get signed URL or path for upload: Response is invalid');
+      }
+
+      final signedUrl = uploadResponse['url'] as String;
+      final uploadedFilename = uploadResponse['path'] as String;
+
+      if (signedUrl.isEmpty || uploadedFilename.isEmpty) {
+        throw Exception('Signed URL or uploaded filename is empty');
+      }
+
+      // Step 2: Upload the file to the signed URL
+      final uploadResult = await widget.apiStore.jarvisService.uploadFileToSignedUrl(
+        signedUrl: signedUrl,
+        file: file,
+        mimetype: _getMimeType(file.extension ?? ''),
+      );
+
+      if (!uploadResult) {
+        throw Exception('Failed to upload file to storage');
+      }
+
+      // Step 3: Notify success
+      final successResponse = await widget.apiStore.jarvisService.notifyUploadSuccess(
+        filename: uploadedFilename,
+        mimetype: _getMimeType(file.extension ?? ''),
+      );
+
+      print('Upload Success Response: $successResponse');
+
+      if (successResponse == null || successResponse['url'] == null) {
+        throw Exception('Failed to notify upload success: Response is invalid');
+      }
+
+      return successResponse;
+    } catch (e) {
+      print('File upload failed for ${file.name}: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload file ${file.name}: $e')),
+      );
+      return null;
+    }
+  }
+
+  String _getMimeType(String extension) {
+    switch (extension.toLowerCase()) {
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'pdf':
+        return 'application/pdf';
+      case 'txt':
+        return 'text/plain';
+      case 'md':
+        return 'text/markdown';
+      case 'json':
+        return 'application/json';
+      case 'html':
+        return 'text/html';
+      case 'java':
+      case 'c':
+      case 'cpp':
+      case 'py':
+      case 'rb':
+      case 'php':
+        return 'text/plain';
+      case 'pptx':
+        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      case 'tex':
+        return 'application/x-tex';
+      default:
+        return 'application/octet-stream';
+    }
   }
 
   void _handleTextChange() {
@@ -287,7 +435,6 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
       builder:
           (context) => Observer(
             builder: (context) {
-              // Find the latest prompt from the service to ensure we have the updated favorite status
               final updatedPrompt = widget.apiStore.jarvisService.prompts
                   .firstWhere((p) => p.id == prompt.id, orElse: () => prompt);
               return AlertDialog(
@@ -475,11 +622,25 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
         assistant: currentAssistant!,
         conversationHistory: conversationHistory,
       );
-      if (response == null || response?.message == null) return;
+      if (response == null || response?.message == null) {
+        setState(() {
+          messages.add(
+            Message(
+              assistant: currentAssistant!,
+              content: "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
+              role: 'model',
+            ),
+          );
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send message: Server error')),
+        );
+        return;
+      }
       setState(() {
         final modelResponse = Message(
           assistant: currentAssistant!,
-          content: response.message ?? 'No response received',
+          content: response.message ?? "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
           role: 'model',
         );
         messages.add(modelResponse);
@@ -578,7 +739,6 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to load assistants')));
-      // Fallback to predefined options if fetching fails
       setState(() {
         assistantOptions = predefinedOptions;
         selectedAssistantOption = assistantOptions.firstWhere(
@@ -630,7 +790,6 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to load assistant')));
-      // Fallback to default predefined bot if loading fails
       setState(() {
         selectedAssistantOption = assistantOptions.firstWhere(
           (option) => option.value == 'gpt-4o-mini',
@@ -694,23 +853,67 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
       _model.textController?.clear();
     });
 
+    // Handle file uploads if any
+    List<String> fileUrls = [];
+    if (_model.selectedFiles.isNotEmpty) {
+      for (var file in _model.selectedFiles) {
+        final uploadResult = await _uploadFile(file);
+        if (uploadResult != null && uploadResult['url'] != null) {
+          fileUrls.add(uploadResult['url']);
+          messages.add(
+            Message(
+              assistant: currentAssistant!,
+              content: 'FILE:${file.name}:${uploadResult['url']}',
+              role: 'user',
+            ),
+          );
+        } else {
+          setState(() {
+            isLoading = false;
+            messages.add(
+              Message(
+                assistant: currentAssistant!,
+                content: 'Failed to upload file: ${file.name}',
+                role: 'user',
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
+        }
+      }
+      _model.selectedFiles.clear();
+    }
+
     _scrollToBottom();
     try {
       final response = await widget.apiStore.jarvisService.sendMessage(
         content: text,
         assistant: currentAssistant!,
         conversationHistory: conversationHistory,
+        files: fileUrls,
       );
-      if (response == null || response?.message == null) return;
+      if (response == null || response?.message == null) {
+        setState(() {
+          messages.add(
+            Message(
+              assistant: currentAssistant!,
+              content: "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
+              role: 'model',
+            ),
+          );
+        });
+        return;
+      }
       setState(() {
         final modelResponse = Message(
           assistant: currentAssistant!,
-          content: response.message ?? 'No response received',
+          content: response.message ?? "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
           role: 'model',
         );
         messages.add(modelResponse);
         conversationHistory.addAll([
-          messages[messages.length - 2].toJson(),
+          messages[messages.length - (fileUrls.isNotEmpty ? 2 + fileUrls.length : 2)].toJson(),
           modelResponse.toJson(),
         ]);
         if (currentToken != null && response.remainingUsage != null) {
@@ -791,7 +994,9 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                 decoration: InputDecoration(
                   hintText: 'Search prompts...',
                   hintStyle: theme.labelMedium,
-                  prefixIcon: const Icon(Icons.search_rounded),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: theme.alternate),
@@ -1132,154 +1337,264 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                 ),
                 Align(
                   alignment: AlignmentDirectional(0.0, 1.0),
-                  child: Container(
-                    width: double.infinity,
-                    height: 80.0,
-                    decoration: BoxDecoration(
-                      color: JarvisTheme.of(context).secondaryBackground,
-                      border: Border.all(
-                        color: JarvisTheme.of(context).alternate,
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsetsDirectional.fromSTEB(
-                        16.0,
-                        12.0,
-                        16.0,
-                        12.0,
-                      ),
-                      child: IntrinsicHeight(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(5.0),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.rectangle,
-                                color: Colors.grey,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.local_fire_department),
-                                  Text(
-                                    currentToken?.availableTokens.toString() ??
-                                        '0',
-                                    style: JarvisTheme.of(
-                                      context,
-                                    ).bodyMedium.override(
-                                      fontFamily: 'Inter',
-                                      color:
-                                          JarvisTheme.of(context).primaryText,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(width: 12.0),
-                            Builder(
-                              builder:
-                                  (context) => JarvisIconButton(
-                                    borderRadius: 24,
-                                    buttonSize: 48,
-                                    fillColor: theme.secondary,
-                                    icon: const Icon(
-                                      Icons.book_rounded,
-                                      color: Colors.white,
-                                      size: 24,
-                                    ),
-                                    onPressed: () {
-                                      Scaffold.of(context).openDrawer();
+                  child: Observer(
+                    builder: (context) {
+                      final fileCount = _model.selectedFiles.length;
+                      final baseHeight = 80.0;
+                      final fileHeight = 40.0;
+                      final totalHeight = baseHeight + (fileCount * fileHeight);
+
+                      return Container(
+                        width: double.infinity,
+                        height: totalHeight,
+                        decoration: BoxDecoration(
+                          color: JarvisTheme.of(context).secondaryBackground,
+                          border: Border.all(
+                            color: JarvisTheme.of(context).alternate,
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsetsDirectional.fromSTEB(
+                            16.0,
+                            12.0,
+                            16.0,
+                            12.0,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_model.selectedFiles.isNotEmpty)
+                                Container(
+                                  height: fileCount * fileHeight,
+                                  child: ListView.builder(
+                                    itemCount: _model.selectedFiles.length,
+                                    itemBuilder: (context, index) {
+                                      final file = _model.selectedFiles[index];
+                                      return Padding(
+                                        padding: EdgeInsets.only(bottom: 8.0),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.description,
+                                              color:
+                                                  JarvisTheme.of(
+                                                    context,
+                                                  ).secondaryText,
+                                              size: 24.0,
+                                            ),
+                                            SizedBox(width: 8.0),
+                                            Expanded(
+                                              child: Text(
+                                                file.name,
+                                                style: JarvisTheme.of(
+                                                  context,
+                                                ).bodyMedium.override(
+                                                  fontFamily: 'Inter',
+                                                  color:
+                                                      JarvisTheme.of(
+                                                        context,
+                                                      ).primaryText,
+                                                  letterSpacing: 0.0,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            SizedBox(width: 8.0),
+                                            Text(
+                                              'Document',
+                                              style: JarvisTheme.of(
+                                                context,
+                                              ).bodySmall.override(
+                                                fontFamily: 'Inter',
+                                                color:
+                                                    JarvisTheme.of(
+                                                      context,
+                                                    ).secondaryText,
+                                                letterSpacing: 0.0,
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: Icon(
+                                                Icons.close,
+                                                color:
+                                                    JarvisTheme.of(
+                                                      context,
+                                                    ).secondaryText,
+                                                size: 20.0,
+                                              ),
+                                              onPressed:
+                                                  () => _removeFile(file),
+                                            ),
+                                          ],
+                                        ),
+                                      );
                                     },
                                   ),
-                            ),
-                            SizedBox(width: 12.0),
-                            Expanded(
-                              child: TextFormField(
-                                key: textFieldKey,
-                                controller: _model.textController,
-                                focusNode: _model.textFieldFocusNode,
-                                autofocus: false,
-                                textCapitalization:
-                                    TextCapitalization.sentences,
-                                obscureText: false,
-                                decoration: InputDecoration(
-                                  hintText: 'Type your message...',
-                                  hintStyle: JarvisTheme.of(
-                                    context,
-                                  ).labelMedium.override(
-                                    fontFamily: 'Inter',
-                                    letterSpacing: 0.0,
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: Color(0x00000000),
-                                      width: 0.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(24.0),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: Color(0x00000000),
-                                      width: 0.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(24.0),
-                                  ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: Color(0x00000000),
-                                      width: 0.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(24.0),
-                                  ),
-                                  focusedErrorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: Color(0x00000000),
-                                      width: 0.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(24.0),
-                                  ),
-                                  filled: true,
-                                  fillColor:
-                                      JarvisTheme.of(context).primaryBackground,
-                                  contentPadding:
-                                      EdgeInsetsDirectional.fromSTEB(
-                                        16.0,
-                                        12.0,
-                                        16.0,
-                                        12.0,
+                                ),
+                              IntrinsicHeight(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.max,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(5.0),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.rectangle,
+                                        color: Colors.grey,
+                                        borderRadius: BorderRadius.circular(10),
                                       ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.local_fire_department),
+                                          Text(
+                                            currentToken?.availableTokens
+                                                    .toString() ??
+                                                '0',
+                                            style: JarvisTheme.of(
+                                              context,
+                                            ).bodyMedium.override(
+                                              fontFamily: 'Inter',
+                                              color:
+                                                  JarvisTheme.of(
+                                                    context,
+                                                  ).primaryText,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(width: 12.0),
+                                    Builder(
+                                      builder:
+                                          (context) => JarvisIconButton(
+                                            borderRadius: 24,
+                                            buttonSize: 48,
+                                            fillColor: theme.secondary,
+                                            icon: const Icon(
+                                              Icons.book_rounded,
+                                              color: Colors.white,
+                                              size: 24,
+                                            ),
+                                            onPressed: () {
+                                              Scaffold.of(context).openDrawer();
+                                            },
+                                          ),
+                                    ),
+                                    SizedBox(width: 12.0),
+                                    Expanded(
+                                      child: TextFormField(
+                                        key: textFieldKey,
+                                        controller: _model.textController,
+                                        focusNode: _model.textFieldFocusNode,
+                                        autofocus: false,
+                                        textCapitalization:
+                                            TextCapitalization.sentences,
+                                        obscureText: false,
+                                        decoration: InputDecoration(
+                                          hintText: 'Type your message...',
+                                          hintStyle: JarvisTheme.of(
+                                            context,
+                                          ).labelMedium.override(
+                                            fontFamily: 'Inter',
+                                            letterSpacing: 0.0,
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderSide: BorderSide(
+                                              color: Color(0x00000000),
+                                              width: 0.0,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              24.0,
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderSide: BorderSide(
+                                              color: Color(0x00000000),
+                                              width: 0.0,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              24.0,
+                                            ),
+                                          ),
+                                          errorBorder: OutlineInputBorder(
+                                            borderSide: BorderSide(
+                                              color: Color(0x00000000),
+                                              width: 0.0,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              24.0,
+                                            ),
+                                          ),
+                                          focusedErrorBorder:
+                                              OutlineInputBorder(
+                                                borderSide: BorderSide(
+                                                  color: Color(0x00000000),
+                                                  width: 0.0,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(24.0),
+                                              ),
+                                          filled: true,
+                                          fillColor:
+                                              JarvisTheme.of(
+                                                context,
+                                              ).primaryBackground,
+                                          contentPadding:
+                                              EdgeInsetsDirectional.fromSTEB(
+                                                16.0,
+                                                12.0,
+                                                16.0,
+                                                12.0,
+                                              ),
+                                          prefixIcon: IconButton(
+                                            icon: Icon(
+                                              Icons.attach_file,
+                                              color:
+                                                  JarvisTheme.of(
+                                                    context,
+                                                  ).secondaryText,
+                                              size: 24.0,
+                                            ),
+                                            onPressed: _pickFile,
+                                          ),
+                                        ),
+                                        style: JarvisTheme.of(
+                                          context,
+                                        ).bodyMedium.override(
+                                          fontFamily: 'Inter',
+                                          letterSpacing: 0.0,
+                                        ),
+                                        cursorColor:
+                                            JarvisTheme.of(context).primary,
+                                        validator:
+                                            _model.textControllerValidator,
+                                        enabled: !isLoading,
+                                        onFieldSubmitted: (_) => _sendMessage(),
+                                      ),
+                                    ),
+                                    SizedBox(width: 12.0),
+                                    JarvisIconButton(
+                                      borderRadius: 24.0,
+                                      buttonSize: 48.0,
+                                      fillColor:
+                                          JarvisTheme.of(context).secondary,
+                                      icon: Icon(
+                                        Icons.send_rounded,
+                                        color: JarvisTheme.of(context).info,
+                                        size: 24.0,
+                                      ),
+                                      onPressed:
+                                          isLoading ? null : _sendMessage,
+                                    ),
+                                  ],
                                 ),
-                                style: JarvisTheme.of(
-                                  context,
-                                ).bodyMedium.override(
-                                  fontFamily: 'Inter',
-                                  letterSpacing: 0.0,
-                                ),
-                                cursorColor: JarvisTheme.of(context).primary,
-                                validator: _model.textControllerValidator,
-                                enabled: !isLoading,
-                                onFieldSubmitted: (_) => _sendMessage(),
                               ),
-                            ),
-                            SizedBox(width: 12.0),
-                            JarvisIconButton(
-                              borderRadius: 24.0,
-                              buttonSize: 48.0,
-                              fillColor: JarvisTheme.of(context).secondary,
-                              icon: Icon(
-                                Icons.send_rounded,
-                                color: JarvisTheme.of(context).info,
-                                size: 24.0,
-                              ),
-                              onPressed: isLoading ? null : _sendMessage,
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -1292,6 +1607,62 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
 
   Widget _buildMessageBubble(Message message) {
     final isUser = message.role == 'user';
+    if (isUser && message.content.startsWith('FILE:')) {
+      final parts = message.content.split(':');
+      if (parts.length >= 3) {
+        final fileName = parts[1];
+        return Padding(
+          padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
+              ),
+              decoration: BoxDecoration(
+                color: JarvisTheme.of(context).secondary,
+                borderRadius: BorderRadius.circular(16.0),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.description,
+                      color: JarvisTheme.of(context).secondaryText,
+                      size: 24.0,
+                    ),
+                    SizedBox(width: 8.0),
+                    Expanded(
+                      child: Text(
+                        fileName,
+                        style: JarvisTheme.of(context).bodyMedium.override(
+                          fontFamily: 'Inter',
+                          color: JarvisTheme.of(context).info,
+                          letterSpacing: 0.0,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    SizedBox(width: 8.0),
+                    Text(
+                      'Document',
+                      style: JarvisTheme.of(context).bodySmall.override(
+                        fontFamily: 'Inter',
+                        color: JarvisTheme.of(context).secondaryText,
+                        letterSpacing: 0.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       child: Align(

@@ -1,6 +1,7 @@
 // Updated JarvisService using apiService methods
 import 'dart:convert';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:jarvis_ai/models/conversation.dart';
@@ -13,6 +14,7 @@ import 'package:jarvis_ai/services/exceptions/api_exception.dart';
 import 'package:mobx/mobx.dart';
 
 part 'jarvis_service.g.dart';
+
 class MessageResponse {
   final String? message;
   final num? remainingUsage;
@@ -26,6 +28,7 @@ class MessageResponse {
     );
   }
 }
+
 class JarvisService = _JarvisService with _$JarvisService;
 
 abstract class _JarvisService with Store {
@@ -411,48 +414,126 @@ abstract class _JarvisService with Store {
   }
 
   @action
-  Future<MessageResponse?> sendMessage({
-    required String content,
-    required Assistant assistant,
-    List<String> files = const [],
-    List<Map<String, dynamic>> conversationHistory = const [],
+  Future<dynamic> requestSignedUrl({
+    required String filename,
+    required String mimetype,
   }) async {
     try {
       final user = await getUser();
-      final userMessage = Message(
-        assistant: assistant,
-        content: content,
-        files: files,
-        role: 'user',
-      );
-      final messages =
-          conversationHistory.isEmpty
-              ? [userMessage.toJson()]
-              : [...conversationHistory, userMessage.toJson()];
-      final requestBody = {
-        'content': content,
-        'files': files,
-        'metadata': {
-          'conversation': {'messages': messages},
-        },
-        'assistant': assistant.toJson(),
-      };
-
-      final data = await _apiService.post(
-        '/api/v1/ai-chat/messages',
+      final requestBody = {'filename': filename, 'mimetype': mimetype};
+      final response = await _apiService.post(
+        '/api/v1/files/upload',
+        body: requestBody,
         headers: {
           'Content-Type': 'application/json',
-          'x-jarvis-guid': '',
+          'priority': 'u=1, i',
           'Authorization': 'Bearer ${user!.accessToken}',
         },
-        body: requestBody,
       );
-      return MessageResponse.fromJson(data);
+      if (response == null) {
+        return null;
+      }
+      print('Response: $response');
+      return response;
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) rethrow;
-      print('Error send message: $e');
+      print('Error fetching signed URL: $e');
+      return null;
     }
   }
+
+  @action
+  Future<bool> uploadFileToSignedUrl({
+    required String signedUrl,
+    required PlatformFile file,
+    required String mimetype,
+  }) async {
+    final headers = {
+      'Content-Type': mimetype,
+      'X-Goog-Content-Length-Range': '0,1073741824',
+    };
+
+    final response = await http.put(
+      Uri.parse(signedUrl),
+      headers: headers,
+      body: file.bytes,
+    );
+
+    return response.statusCode == 200;
+  }
+
+  @action
+  Future<dynamic> notifyUploadSuccess({
+    required String filename,
+    required String mimetype,
+  }) async {
+    try {
+      final user = await getUser();
+      final requestBody = {'filename': filename, 'mimetype': mimetype};
+      final response = await _apiService.post(
+        '/api/v1/files/upload/success',
+        body: requestBody,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+      );
+      if (response == null) {
+        return null;
+      }
+      print('Response: $response');
+      return response;
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error notifying upload success: $e');
+      return null;
+    }
+  }
+
+  @action
+Future<MessageResponse?> sendMessage({
+  required String content,
+  required Assistant assistant,
+  List<String> files = const [],
+  List<Map<String, dynamic>> conversationHistory = const [],
+}) async {
+  try {
+    final user = await getUser();
+    final userMessage = Message(
+      assistant: assistant,
+      content: content,
+      files: files,
+      role: 'user',
+    );
+    final messages =
+        conversationHistory.isEmpty
+            ? [userMessage.toJson()]
+            : [...conversationHistory, userMessage.toJson()];
+    final requestBody = {
+      'content': content,
+      'files': files,
+      'metadata': {
+        'conversation': {'messages': messages},
+      },
+      'assistant': assistant.toJson(),
+    };
+
+    final data = await _apiService.post(
+      '/api/v1/ai-chat/messages',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-jarvis-guid': '',
+        'Authorization': 'Bearer ${user!.accessToken}',
+      },
+      body: requestBody,
+    );
+    return MessageResponse.fromJson(data);
+  } catch (e) {
+    if (e is ApiException && e.statusCode == 401) rethrow;
+    print('Error send message: $e');
+    rethrow;
+  }
+}
 
   @action
   Future<UserModel?> getUser() async {

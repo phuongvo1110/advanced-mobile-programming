@@ -77,8 +77,8 @@ abstract class _KBService with Store {
     String? search = '',
     String? order = 'ASC',
     String? order_field = 'createdAt',
-    bool isFavorite = false,
-    bool isPublished = false,
+    bool? isFavorite,
+    bool? isPublished = false,
     bool refresh = false,
   }) async {
     if (refresh) {
@@ -163,6 +163,39 @@ abstract class _KBService with Store {
   Future<void> loadMoreAssistants() async {
     if (!hasMoreAssistants || isLoading) return;
     await getAssistants(offset: currentPage * 20, search: assistantSearchQuery);
+  }
+
+  @action
+  Future<AssistantDetail?> toggleFavoriteAssistant({
+    required String assistantId,
+  }) async {
+    try {
+      final user = await getUser();
+      final response = await _apiService.post(
+        '/kb-core/v1/ai-assistant/$assistantId/favorite',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+        body: {},
+      );
+      final index = assistants.indexWhere((p) => p.id == assistantId);
+      if (index != -1) {
+        final oldAssistant = assistants[index];
+        assistants[index] = oldAssistant.copyWith(
+          isFavorite: !(oldAssistant.isFavorite ?? false),
+        );
+      }
+      return AssistantDetail.fromJson(response);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) {
+        // This will trigger the unauthorized handler in ApiService
+        rethrow;
+      }
+      print('Error toggling favorite: $e');
+      return null;
+    }
   }
 
   // Add this to your KBService class
@@ -553,6 +586,7 @@ abstract class _KBService with Store {
       return null;
     }
   }
+
   @action
   Future<bool> deleteUnit({
     required String knowledgeId,
@@ -582,7 +616,8 @@ abstract class _KBService with Store {
       });
     }
   }
-  @action 
+
+  @action
   Future<Unit?> updateStatusUnit({
     required String unitId,
     required bool status,
@@ -606,18 +641,16 @@ abstract class _KBService with Store {
       return null;
     }
   }
-  @action 
+
+  @action
   Future<Unit?> uploadWebToKnowledgeBase({
     required String knowledgeId,
     required String unitName,
-    required String webUrl
+    required String webUrl,
   }) async {
     try {
       final user = await getUser();
-      final requestBody = {
-        'unitName': unitName,
-        'webUrl': webUrl,
-      };
+      final requestBody = {'unitName': unitName, 'webUrl': webUrl};
       final response = await _apiService.post(
         '/kb-core/v1/knowledge/$knowledgeId/web',
         headers: {
@@ -635,6 +668,7 @@ abstract class _KBService with Store {
       return null;
     }
   }
+
   @action
   Future<void> getKnowledgeBases({
     required String assistantId,

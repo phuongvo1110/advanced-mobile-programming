@@ -303,8 +303,8 @@ mixin _$KBService on _KBService, Store {
       String? search = '',
       String? order = 'ASC',
       String? order_field = 'createdAt',
-      bool isFavorite = false,
-      bool isPublished = false,
+      bool? isFavorite,
+      bool? isPublished = false,
       bool refresh = false}) {
     return _$getAssistantsAsyncAction.run(() => super.getAssistants(
         limit: limit,
@@ -333,6 +333,16 @@ mixin _$KBService on _KBService, Store {
   Future<void> loadMoreAssistants() {
     return _$loadMoreAssistantsAsyncAction
         .run(() => super.loadMoreAssistants());
+  }
+
+  late final _$toggleFavoriteAssistantAsyncAction =
+      AsyncAction('_KBService.toggleFavoriteAssistant', context: context);
+
+  @override
+  Future<AssistantDetail?> toggleFavoriteAssistant(
+      {required String assistantId}) {
+    return _$toggleFavoriteAssistantAsyncAction
+        .run(() => super.toggleFavoriteAssistant(assistantId: assistantId));
   }
 
   late final _$createAssistantAsyncAction =
