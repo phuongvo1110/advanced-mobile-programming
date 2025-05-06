@@ -5,6 +5,7 @@ import 'package:jarvis_ai/pages/ai_message_page.dart';
 import 'package:jarvis_ai/pages/ai_preview_page.dart';
 import 'package:jarvis_ai/pages/ai_subscribtion_page.dart';
 import 'package:jarvis_ai/pages/home_page.dart';
+import 'package:jarvis_ai/pages/knowledgebase/kb_managing_page.dart';
 import 'package:jarvis_ai/pages/login_page.dart';
 import 'package:jarvis_ai/pages/messages_page.dart';
 import 'package:jarvis_ai/pages/profile_page.dart';
@@ -52,6 +53,10 @@ class AppRoutes {
       case '/prompts':
         return MaterialPageRoute(
           builder: (_) => PromptManagingPage(apiStore: apiStore),
+        );
+      case '/data':
+        return MaterialPageRoute(
+          builder: (_) => KnowledgeBasePage(apiStore: apiStore),
         );
       case '/create-prompt':
         return MaterialPageRoute(

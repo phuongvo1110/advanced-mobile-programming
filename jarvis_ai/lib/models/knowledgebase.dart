@@ -8,17 +8,22 @@ class KnowledgeBase {
   String? knowledgeName;
   String? description;
   String? userId;
+  int? numUnits;
+  int? totalSize;
 
-  KnowledgeBase(
-      {this.createdAt,
-      this.updatedAt,
-      this.createdBy,
-      this.updatedBy,
-      this.deletedAt,
-      this.id,
-      this.knowledgeName,
-      this.description,
-      this.userId});
+  KnowledgeBase({
+    this.createdAt,
+    this.updatedAt,
+    this.createdBy,
+    this.updatedBy,
+    this.deletedAt,
+    this.id,
+    this.knowledgeName,
+    this.description,
+    this.userId,
+    this.numUnits,
+    this.totalSize,
+  });
 
   KnowledgeBase.fromJson(Map<String, dynamic> json) {
     createdAt = json['createdAt'];
@@ -30,6 +35,8 @@ class KnowledgeBase {
     knowledgeName = json['knowledgeName'];
     description = json['description'];
     userId = json['userId'];
+    numUnits = json['numUnits'];
+    totalSize = json['totalSize'];
   }
 
   Map<String, dynamic> toJson() {
@@ -43,6 +50,8 @@ class KnowledgeBase {
     data['knowledgeName'] = this.knowledgeName;
     data['description'] = this.description;
     data['userId'] = this.userId;
+    data['numUnits'] = this.numUnits;
+    data['totalSize'] = this.totalSize;
     return data;
   }
 }

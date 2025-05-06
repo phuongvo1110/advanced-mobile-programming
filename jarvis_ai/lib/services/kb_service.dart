@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:dio/dio.dart' as dio;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:jarvis_ai/models/assistant.dart';
+import 'package:jarvis_ai/models/datasource.dart';
 import 'package:jarvis_ai/models/knowledgebase.dart';
 import 'package:jarvis_ai/models/thread_message.dart';
 import 'package:jarvis_ai/models/unit.dart';
@@ -115,13 +115,14 @@ abstract class _KBService with Store {
           'Authorization': 'Bearer ${user!.accessToken}',
         },
       );
-      print('Data: $data');
       final List<AssistantDetail> newAssistants =
           (data['data'] as List)
               .map((item) => AssistantDetail.fromJson(item))
               .toList();
+      print('New Assistants: $newAssistants');
       if (refresh) assistants.clear();
       assistants.addAll(newAssistants);
+      print('Assistants: $assistants');
       final meta = data['meta'];
       hasMoreAssistants = meta['hasNext'] ?? false;
       currentPage++;
@@ -595,7 +596,7 @@ abstract class _KBService with Store {
     try {
       final user = await getUser();
       final response = await _apiService.delete(
-        '/kb-core/v1/knowledge/${knowledgeId}/units/${unitId}',
+        '/kb-core/v1/knowledge/${knowledgeId}/datasources/${unitId}',
         body: {},
         headers: {
           'Content-Type': 'application/json',
@@ -619,6 +620,7 @@ abstract class _KBService with Store {
 
   @action
   Future<Unit?> updateStatusUnit({
+    required String knowledgeId,
     required String unitId,
     required bool status,
   }) async {
@@ -626,7 +628,7 @@ abstract class _KBService with Store {
       final user = await getUser();
       final requestBody = {'status': status};
       final response = await _apiService.patch(
-        '/kb-core/v1/knowledge/units/${unitId}/status',
+        '/kb-core/v1/knowledge/$knowledgeId/datasources/${unitId}',
         headers: {
           'Content-Type': 'application/json',
           'x-jarvis-guid': '',
@@ -662,6 +664,35 @@ abstract class _KBService with Store {
       );
       print('Upload web response: $response');
       return Unit.fromJson(response);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error uploading web to knowledge base: $e');
+      return null;
+    }
+  }
+
+  @action
+  Future<List<Unit>?> uploadSlackToKnowledgeBase({
+    required String knowledgeId,
+    required DatasourceRequest request,
+  }) async {
+    try {
+      final user = await getUser();
+      final response = await _apiService.post(
+        '/kb-core/v1/knowledge/$knowledgeId/datasources',
+        body: request.toJson(),
+        headers: {
+          'accept': 'application/json, text/plain, */*',
+          'authorization': 'Bearer ${user!.accessToken}',
+          'content-type': 'application/json',
+        },
+      );
+      if (response != null) {
+        print('Datasource added successfully: $response');
+      }
+      return (response['datasources'] as List)
+          .map((item) => Unit.fromJson(item))
+          .toList();
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) rethrow;
       print('Error uploading web to knowledge base: $e');
@@ -862,7 +893,7 @@ abstract class _KBService with Store {
       final queryString = Uri(queryParameters: params).query;
       print('KnowledgeUnit QueryString: $queryString');
       final data = await _apiService.get(
-        '/kb-core/v1/knowledge/$knowledgeId/units?$queryString',
+        '/kb-core/v1/knowledge/$knowledgeId/datasources?$queryString',
         headers: {
           'x-jarvis-guid': '',
           'Authorization': 'Bearer ${user!.accessToken}',

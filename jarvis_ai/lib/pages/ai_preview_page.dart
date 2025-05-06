@@ -18,7 +18,6 @@ import 'package:jarvis_ai/components/card_prompt_widget.dart';
 import 'package:jarvis_ai/theme/flutter_flow_choice_chips.dart';
 import 'package:jarvis_ai/theme/form_field_controller.dart';
 import 'package:mobx/mobx.dart';
-
 class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
   FocusNode? textFieldFocusNode;
   TextEditingController? textController;
@@ -1101,9 +1100,10 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     }
   }
 
-  Future<void> updateUnitStatus(String unitId, bool status) async {
+  Future<void> updateUnitStatus(String knowledgeId,String unitId, bool status) async {
     try {
       await widget.apiStore.kbService.updateStatusUnit(
+        knowledgeId: knowledgeId,
         unitId: unitId,
         status: status,
       );
@@ -2140,6 +2140,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                                                   unit.status = value;
                                                 });
                                                 updateUnitStatus(
+                                                  selectedKnowledgeBaseId!,
                                                   unit.id!,
                                                   value,
                                                 );

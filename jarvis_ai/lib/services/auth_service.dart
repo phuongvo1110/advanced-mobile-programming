@@ -198,7 +198,7 @@ abstract class _AuthService with Store {
         currentUser = UserModel(
           userId: currentUser!.userId,
           accessToken: response['access_token'],
-          refreshToken: response['refresh_token'] ?? currentUser!.refreshToken,
+          refreshToken: currentUser!.refreshToken,
         );
         print('Token refreshed successfully!');
         await _saveUserData();

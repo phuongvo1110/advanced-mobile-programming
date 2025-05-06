@@ -11,24 +11,25 @@ class Unit {
   bool? status;
   String? userId;
   String? knowledgeId;
-  List<String>? openAiFileIds;
+  // List<String>? openAiFileIds;
   Metadata? metadata;
 
-  Unit(
-      {this.createdAt,
-      this.updatedAt,
-      this.createdBy,
-      this.updatedBy,
-      this.deletedAt,
-      this.id,
-      this.name,
-      this.type,
-      this.size,
-      this.status,
-      this.userId,
-      this.knowledgeId,
-      this.openAiFileIds,
-      this.metadata});
+  Unit({
+    this.createdAt,
+    this.updatedAt,
+    this.createdBy,
+    this.updatedBy,
+    this.deletedAt,
+    this.id,
+    this.name,
+    this.type,
+    this.size,
+    this.status,
+    this.userId,
+    this.knowledgeId,
+    // this.openAiFileIds,
+    this.metadata,
+  });
 
   Unit.fromJson(Map<String, dynamic> json) {
     createdAt = json['createdAt'];
@@ -43,10 +44,11 @@ class Unit {
     status = json['status'];
     userId = json['userId'];
     knowledgeId = json['knowledgeId'];
-    openAiFileIds = json['openAiFileIds'].cast<String>();
-    metadata = json['metadata'] != null
-        ? new Metadata.fromJson(json['metadata'])
-        : null;
+    // openAiFileIds = json['openAiFileIds'].cast<String>();
+    metadata =
+        json['metadata'] != null
+            ? new Metadata.fromJson(json['metadata'])
+            : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -63,7 +65,7 @@ class Unit {
     data['status'] = this.status;
     data['userId'] = this.userId;
     data['knowledgeId'] = this.knowledgeId;
-    data['openAiFileIds'] = this.openAiFileIds;
+    // data['openAiFileIds'] = this.openAiFileIds;
     if (this.metadata != null) {
       data['metadata'] = this.metadata!.toJson();
     }
@@ -72,20 +74,15 @@ class Unit {
 }
 
 class Metadata {
-  String? name;
-  String? mimetype;
+  String datasourceId = '';
 
-  Metadata({this.name, this.mimetype});
+  Metadata({required this.datasourceId});
 
-  Metadata.fromJson(Map<String, dynamic> json) {
-    name = json['name'];
-    mimetype = json['mimetype'];
-  }
+  Metadata.fromJson(Map<String, dynamic> json);
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['name'] = this.name;
-    data['mimetype'] = this.mimetype;
+    data['datasourceId'] = this.datasourceId;
     return data;
   }
 }

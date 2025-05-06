@@ -156,7 +156,7 @@ class HomePage extends StatelessWidget {
                             ),
                             GestureDetector(
                               onTap: () {
-                                Navigator.pushNamed(context, '/messages');
+                                Navigator.pushNamed(context, '/data');
                               },
                               child: Material(
                                 color: Colors.transparent,

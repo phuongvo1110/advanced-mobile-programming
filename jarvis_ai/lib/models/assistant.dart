@@ -12,6 +12,9 @@ class AssistantDetail {
   final String? updatedBy;
   final bool? isDefault;
   final bool? isFavorite;
+  final List<String>? permissions;
+  final Object? config;
+  final DateTime? deletedAt;
 
   const AssistantDetail({
     required this.assistantName,
@@ -26,6 +29,9 @@ class AssistantDetail {
     this.updatedBy,
     this.isDefault,
     this.isFavorite,
+    this.permissions,
+    this.config,
+    this.deletedAt,
   });
   AssistantDetail copyWith({
     String? assistantName,
@@ -40,6 +46,9 @@ class AssistantDetail {
     String? updatedBy,
     bool? isDefault,
     bool? isFavorite,
+    List<String>? permissions,
+    Object? config,
+    DateTime? deletedAt,
   }) {
     return AssistantDetail(
       assistantName: assistantName ?? this.assistantName,
@@ -54,6 +63,9 @@ class AssistantDetail {
       updatedBy: updatedBy ?? this.updatedBy,
       isDefault: isDefault ?? this.isDefault,
       isFavorite: isFavorite ?? this.isFavorite,
+      permissions: permissions ?? this.permissions,
+      config: config ?? this.config,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 
@@ -74,6 +86,15 @@ class AssistantDetail {
       updatedBy: json['updatedBy'] as String?,
       isDefault: json['isDefault'] as bool?,
       isFavorite: json['isFavorite'] as bool?,
+      permissions:
+          (json['permissions'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList(),
+      config: json['config'] as Object?,
+      deletedAt:
+          json['deletedAt'] != null
+              ? DateTime.parse(json['deletedAt'] as String)
+              : null,
     );
   }
   Map<String, dynamic> toJson() => {
@@ -89,6 +110,9 @@ class AssistantDetail {
     'updatedBy': updatedBy,
     'isDefault': isDefault,
     'isFavorite': isFavorite,
+    'permissions': permissions,
+    'config': config,
+    'deletedAt': deletedAt?.toIso8601String(),
   };
 
   @override

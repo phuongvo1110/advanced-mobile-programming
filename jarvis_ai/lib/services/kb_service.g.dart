@@ -446,9 +446,11 @@ mixin _$KBService on _KBService, Store {
 
   @override
   Future<Unit?> updateStatusUnit(
-      {required String unitId, required bool status}) {
-    return _$updateStatusUnitAsyncAction
-        .run(() => super.updateStatusUnit(unitId: unitId, status: status));
+      {required String knowledgeId,
+      required String unitId,
+      required bool status}) {
+    return _$updateStatusUnitAsyncAction.run(() => super.updateStatusUnit(
+        knowledgeId: knowledgeId, unitId: unitId, status: status));
   }
 
   late final _$uploadWebToKnowledgeBaseAsyncAction =
@@ -462,6 +464,17 @@ mixin _$KBService on _KBService, Store {
     return _$uploadWebToKnowledgeBaseAsyncAction.run(() => super
         .uploadWebToKnowledgeBase(
             knowledgeId: knowledgeId, unitName: unitName, webUrl: webUrl));
+  }
+
+  late final _$uploadSlackToKnowledgeBaseAsyncAction =
+      AsyncAction('_KBService.uploadSlackToKnowledgeBase', context: context);
+
+  @override
+  Future<List<Unit>?> uploadSlackToKnowledgeBase(
+      {required String knowledgeId, required DatasourceRequest request}) {
+    return _$uploadSlackToKnowledgeBaseAsyncAction.run(() => super
+        .uploadSlackToKnowledgeBase(
+            knowledgeId: knowledgeId, request: request));
   }
 
   late final _$getKnowledgeBasesAsyncAction =
