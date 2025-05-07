@@ -523,15 +523,9 @@ mixin _$KBService on _KBService, Store {
 
   @override
   Future<void> sendMessage(
-      {required String assistantId,
-      required String threadId,
-      required String message,
-      String additionalInstruction = ''}) {
-    return _$sendMessageAsyncAction.run(() => super.sendMessage(
-        assistantId: assistantId,
-        threadId: threadId,
-        message: message,
-        additionalInstruction: additionalInstruction));
+      {required String assistantId, required String message}) {
+    return _$sendMessageAsyncAction.run(
+        () => super.sendMessage(assistantId: assistantId, message: message));
   }
 
   late final _$getKnowledgeUnitsAsyncAction =

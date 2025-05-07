@@ -14,7 +14,7 @@ import 'package:jarvis_ai/theme/form_field_controller.dart';
 import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
 import 'package:mobx/mobx.dart';
-
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 class AssistantOption {
   final String value;
   final String label;
@@ -746,7 +746,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
           ...widget.apiStore.kbService.assistants.map(
             (assistant) => AssistantOption(
               value: assistant.id,
-              label: assistant.assistantName,
+              label: assistant.assistantName ?? 'Custom Assistant',
               isCustom: true,
               model: 'knowledge-base',
             ),
@@ -803,14 +803,14 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
           currentAssistant = Assistant(
             id: assistantDetail.id,
             model: 'knowledge-base',
-            name: assistantDetail.assistantName,
+            name: assistantDetail.assistantName ?? 'Custom Assistant',
           );
           selectedAssistantOption = assistantOptions.firstWhere(
             (option) => option.value == assistantDetail.id,
             orElse:
                 () => AssistantOption(
                   value: assistantDetail.id,
-                  label: assistantDetail.assistantName,
+                  label: assistantDetail.assistantName ?? 'Custom Assistant',
                   isCustom: true,
                   model: 'knowledge-base',
                 ),
@@ -1637,7 +1637,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                                       child: Row(
                                         children: [
                                           Icon(Icons.local_fire_department),
-                                          Text(
+                                          !currentToken!.unlimited ? Text(
                                             currentToken?.availableTokens
                                                     .toString() ??
                                                 '0',
@@ -1651,7 +1651,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                                                   ).primaryText,
                                               fontWeight: FontWeight.w600,
                                             ),
-                                          ),
+                                          ) : FaIcon(FontAwesomeIcons.infinity, size: 15),
                                         ],
                                       ),
                                     ),

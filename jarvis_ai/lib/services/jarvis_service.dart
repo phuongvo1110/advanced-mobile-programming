@@ -11,6 +11,7 @@ import 'package:jarvis_ai/models/prompt.dart';
 import 'package:jarvis_ai/models/query_message.dart';
 import 'package:jarvis_ai/models/token.dart';
 import 'package:jarvis_ai/models/user.dart';
+import 'package:jarvis_ai/models/user_token.dart';
 import 'package:jarvis_ai/services/api_service.dart';
 import 'package:jarvis_ai/services/exceptions/api_exception.dart';
 import 'package:mobx/mobx.dart';
@@ -59,6 +60,35 @@ abstract class _JarvisService with Store {
   bool hasMoreConversations = true;
   @observable
   String? promptSearchQuery;
+  @observable
+  bool isUserTokenLoading = false;
+  @action
+  Future<UserToken?> getUserToken() async {
+    isUserTokenLoading = true;
+    try {
+      final user = await getUser();
+      final response = await _apiService.get(
+        '/api/v1/subscriptions/me',
+        headers: {
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+      );
+      if (response == null) {
+        return null;
+      }
+      print('Response: $response');
+      return UserToken.fromJson(response);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error fetching user token: $e');
+      return null;
+    } finally {
+      runInAction(() {
+        isUserTokenLoading = false;
+      });
+    }
+  }
 
   @action
   Future<Member?> getCurrentUser() async {
@@ -538,7 +568,6 @@ abstract class _JarvisService with Store {
         },
         'assistant': assistant.toJson(),
       };
-      print('Request body: $requestBody');
 
       final data = await _apiService.post(
         '/api/v1/ai-chat/messages',
@@ -549,6 +578,7 @@ abstract class _JarvisService with Store {
         },
         body: requestBody,
       );
+      print('Data: $data');
       return MessageResponse.fromJson(data);
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) rethrow;

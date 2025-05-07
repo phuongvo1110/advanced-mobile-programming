@@ -81,7 +81,7 @@ class AssistantCardWidget extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            assistant.assistantName,
+                            assistant.assistantName ?? 'Assistant',
                             style: theme.titleMedium.override(
                               fontFamily: 'Inter Tight',
                               fontWeight: FontWeight.w600,

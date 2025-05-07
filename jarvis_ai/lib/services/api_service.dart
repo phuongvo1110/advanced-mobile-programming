@@ -34,6 +34,50 @@ class ApiService {
     }
   }
 
+  Stream stream(
+    String endpoint, {
+    required Map<String, dynamic> body,
+    Map<String, String>? headers,
+  }) async* {
+    try {
+      final client = http.Client();
+      final request =
+          http.Request('POST', Uri.parse('$baseUrl$endpoint'))
+            ..headers.addAll({
+              'Content-Type': 'application/json',
+              'Accept': 'text/event-stream',
+              ...?headers,
+            })
+            ..body = json.encode(body);
+      final response = await client.send(request);
+
+      if (response.statusCode == 401) {
+        _secureStorage.delete(key: 'user');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          onUnauthorized();
+        });
+        throw ApiException('Session expired', 401, {});
+      } else if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+          'Request failed with status ${response.statusCode}',
+          response.statusCode,
+          {},
+        );
+      }
+
+      await for (var line in response.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())) {
+        yield line;
+      }
+    } catch (e) {
+      if (e is ApiException) {
+        rethrow;
+      }
+      throw ApiException(e.toString(), 0, {'rawError': e.toString()});
+    }
+  }
+
   Future<dynamic> delete(
     String endpoint, {
     required Map<String, dynamic> body,

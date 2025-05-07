@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:intl/intl.dart';
 import 'package:jarvis_ai/models/assistant.dart';
+import 'package:jarvis_ai/models/datasource.dart';
 import 'package:jarvis_ai/models/knowledgebase.dart';
 import 'package:jarvis_ai/models/prompt.dart';
 import 'package:jarvis_ai/models/thread_message.dart';
 import 'package:jarvis_ai/pages/ai_bot_create.dart';
+import 'package:jarvis_ai/pages/knowledgebase/kb_managing_page.dart';
 import 'package:jarvis_ai/pages/prompt_create._page.dart';
 import 'package:jarvis_ai/stores/api_store.dart';
 import 'package:jarvis_ai/theme/flutter_flow_model.dart';
@@ -18,6 +20,7 @@ import 'package:jarvis_ai/components/card_prompt_widget.dart';
 import 'package:jarvis_ai/theme/flutter_flow_choice_chips.dart';
 import 'package:jarvis_ai/theme/form_field_controller.dart';
 import 'package:mobx/mobx.dart';
+
 class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
   FocusNode? textFieldFocusNode;
   TextEditingController? textController;
@@ -1100,7 +1103,11 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     }
   }
 
-  Future<void> updateUnitStatus(String knowledgeId,String unitId, bool status) async {
+  Future<void> updateUnitStatus(
+    String knowledgeId,
+    String unitId,
+    bool status,
+  ) async {
     try {
       await widget.apiStore.kbService.updateStatusUnit(
         knowledgeId: knowledgeId,
@@ -1119,244 +1126,245 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
   }
 
   void showImportWebSourceDialog() {
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController urlController = TextEditingController(
-    text: 'https://example.com',
-  );
-  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-  final theme = JarvisTheme.of(context);
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController urlController = TextEditingController(
+      text: 'https://example.com',
+    );
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final theme = JarvisTheme.of(context);
 
-  showDialog(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Import Web Source', style: theme.titleMedium),
-            IconButton(
-              icon: const Icon(Icons.close, size: 24),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-          ],
-        ),
-        content: Form(
-          key: formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Name',
-                      style: theme.bodyMedium.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Text(' *', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    hintText: 'Enter knowledge unit name',
-                    hintStyle: theme.bodyMedium.copyWith(
-                      color: theme.secondaryText,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: theme.alternate),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: theme.primary),
-                    ),
-                    errorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.red),
-                    ),
-                    focusedErrorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.red),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Name is required';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Text(
-                      'Web URL',
-                      style: theme.bodyMedium.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Text(' *', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: urlController,
-                  decoration: InputDecoration(
-                    hintText: 'https://example.com',
-                    hintStyle: theme.bodyMedium.copyWith(
-                      color: theme.secondaryText,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: theme.alternate),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: theme.primary),
-                    ),
-                    errorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.red),
-                    ),
-                    focusedErrorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.red),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'URL is required';
-                    }
-                    final urlPattern = RegExp(
-                      r'^(https?:\/\/)?([\w\d\-_]+(\.[\w\d\-_]+)+)([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?$',
-                    );
-                    if (!urlPattern.hasMatch(value)) {
-                      return 'Please enter a valid URL';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Import Web Source', style: theme.titleMedium),
+              IconButton(
+                icon: const Icon(Icons.close, size: 24),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                },
+              ),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
                       Text(
-                        'Current Limitation:',
+                        'Name',
                         style: theme.bodyMedium.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '• You can load up to 64 pages at a time',
-                        style: theme.bodySmall,
-                      ),
-                      Text(
-                        '• Need more? Contact us at myjarvischat@gmail.com',
-                        style: theme.bodySmall,
-                      ),
+                      const Text(' *', style: TextStyle(color: Colors.red)),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-            },
-            style: TextButton.styleFrom(
-              backgroundColor: Colors.grey[200],
-              foregroundColor: theme.primaryText,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
-            ),
-            child: const Text('Back'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (formKey.currentState!.validate()) {
-                try {
-                  final response = await widget.apiStore.kbService
-                      .uploadWebToKnowledgeBase(
-                        knowledgeId: selectedKnowledgeBaseId!,
-                        unitName: nameController.text,
-                        webUrl: urlController.text,
-                      );
-                  if (response != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Web source imported successfully'),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter knowledge unit name',
+                      hintStyle: theme.bodyMedium.copyWith(
+                        color: theme.secondaryText,
                       ),
-                    );
-                    await _fetchUnits(
-                      refresh: true,
-                      knowledgeId: selectedKnowledgeBaseId!,
-                    );
-                  } else {
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.alternate),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.primary),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Name is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        'Web URL',
+                        style: theme.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(' *', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: urlController,
+                    decoration: InputDecoration(
+                      hintText: 'https://example.com',
+                      hintStyle: theme.bodyMedium.copyWith(
+                        color: theme.secondaryText,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.alternate),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.primary),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'URL is required';
+                      }
+                      final urlPattern = RegExp(
+                        r'^(https?:\/\/)?([\w\d\-_]+(\.[\w\d\-_]+)+)([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?$',
+                      );
+                      if (!urlPattern.hasMatch(value)) {
+                        return 'Please enter a valid URL';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Current Limitation:',
+                          style: theme.bodyMedium.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '• You can load up to 64 pages at a time',
+                          style: theme.bodySmall,
+                        ),
+                        Text(
+                          '• Need more? Contact us at myjarvischat@gmail.com',
+                          style: theme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.grey[200],
+                foregroundColor: theme.primaryText,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+              ),
+              child: const Text('Back'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  try {
+                    final response = await widget.apiStore.kbService
+                        .uploadWebToKnowledgeBase(
+                          knowledgeId: selectedKnowledgeBaseId!,
+                          unitName: nameController.text,
+                          webUrl: urlController.text,
+                        );
+                    if (response != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Web source imported successfully'),
+                        ),
+                      );
+                      await _fetchUnits(
+                        refresh: true,
+                        knowledgeId: selectedKnowledgeBaseId!,
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to import web source'),
+                        ),
+                      );
+                    }
+                    Navigator.of(dialogContext).pop();
+                  } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Failed to import web source'),
+                      SnackBar(
+                        content: Text('Failed to import web source: $e'),
                       ),
                     );
                   }
-                  Navigator.of(dialogContext).pop();
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to import web source: $e'),
-                    ),
-                  );
                 }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[50],
-              foregroundColor: Colors.blue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[50],
+                foregroundColor: Colors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
+              child: const Text('Import'),
             ),
-            child: const Text('Import'),
-          ),
-        ],
-      );
-    },
-  );
-}
+          ],
+        );
+      },
+    );
+  }
+
   void showAddKnowledgeUnitDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -1385,6 +1393,19 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                   },
                 ),
                 ListTile(
+                  leading: const Image(
+                    image: AssetImage('assets/Slack_icon.png'),
+                    width: 20.0,
+                    height: 20.0,
+                  ),
+                  title: const Text('Slack'),
+                  subtitle: const Text('Connect to Slack workspace'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    showImportSlackDialog();
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.cloud),
                   title: const Text('Google Drive'),
                   subtitle: const Text('Coming soon'),
@@ -1400,12 +1421,6 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                   leading: const Icon(Icons.code),
                   title: const Text('GitLab Repository'),
                   subtitle: const Text('Connect to GitLab repositories'),
-                  enabled: false,
-                ),
-                ListTile(
-                  leading: const Icon(Icons.chat),
-                  title: const Text('Slack'),
-                  subtitle: const Text('Connect to Slack workspace'),
                   enabled: false,
                 ),
                 ListTile(
@@ -1435,9 +1450,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     required String userInput,
     required String language,
   }) async {
-    if (widget.existingAssistant == null ||
-        _assistant == null ||
-        _assistant!.openAiThreadIdPlay == null) {
+    if (widget.existingAssistant == null || _assistant == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Assistant or thread ID is missing')),
       );
@@ -1484,7 +1497,6 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     try {
       await widget.apiStore.kbService.sendMessage(
         assistantId: widget.existingAssistant!,
-        threadId: _assistant!.openAiThreadIdPlay!,
         message: message,
       );
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1512,7 +1524,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
       final assistant = await widget.apiStore.kbService.getAssistantById(
         id: widget.existingAssistant!,
       );
-      print('Assistant fetched: ${assistant!.toJson()}');
+      if (assistant == null) return;
       setState(() {
         _assistant = assistant;
         _model.instructionController!.text = assistant.instructions ?? '';
@@ -1586,15 +1598,14 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
   }
 
   Future<void> _fetchMessages({bool refresh = false}) async {
-    if (_assistant == null || _assistant!.openAiThreadIdPlay == null) {
-      print('Error: threadId is null');
+    if (_assistant == null) {
       return;
     }
     try {
-      await widget.apiStore.kbService.getThreadMessages(
-        threadId: _assistant!.openAiThreadIdPlay!,
-        refresh: refresh,
-      );
+      // await widget.apiStore.kbService.getThreadMessages(
+      //   threadId: _assistant!.openAiThreadIdPlay!,
+      //   refresh: refresh,
+      // );
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_model.chatScrollController != null &&
             _model.chatScrollController!.hasClients) {
@@ -1618,12 +1629,10 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
       ).showSnackBar(const SnackBar(content: Text('Please enter a message')));
       return;
     }
-    if (widget.existingAssistant == null ||
-        _assistant == null ||
-        _assistant!.openAiThreadIdPlay == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Assistant or thread ID is missing')),
-      );
+    if (widget.existingAssistant == null || _assistant == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Assistant is missing')));
       return;
     }
     final message = _model.textController!.text;
@@ -1645,7 +1654,6 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     try {
       await widget.apiStore.kbService.sendMessage(
         assistantId: widget.existingAssistant!,
-        threadId: _assistant!.openAiThreadIdPlay!,
         message: message,
       );
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2102,67 +2110,51 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                                         ),
                                       ),
                                       child: ListTile(
-                                        leading: Icon(
-                                          unit.type == 'web' ? Icons.web : Icons.description,
-                                          color: theme.secondaryText,
-                                        ),
-                                        title: Text(
-                                          unit.name ?? 'Untitled',
-                                          style: theme.bodyMedium,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        subtitle: Row(
-                                          children: [
-                                            Text(
-                                              '${unit.size!.toStringAsFixed(2)} KB',
-                                              style: theme.bodySmall.copyWith(
-                                                color: Colors.green,
-                                              ),
+                                      leading: typeTransform(unit.type!, context),
+                                      title: Text(
+                                        unit.name ?? 'Untitled',
+                                        style: theme.bodyMedium,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      subtitle: Row(
+                                        children: [
+                                          Text(
+                                            '${unit.size!.toStringAsFixed(2)} KB',
+                                            style: theme.bodySmall.copyWith(
+                                              color: Colors.green,
                                             ),
-                                            // const SizedBox(width: 8),
-                                            // Text(
-                                            //   unit.type ?? 'Unknown',
-                                            //   style: theme.bodySmall
-                                            //       .copyWith(
-                                            //         color:
-                                            //             theme.secondaryText,
-                                            //       ),
-                                            // ),
-                                          ],
-                                        ),
-                                        trailing: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Switch(
-                                              value: unit.status!,
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  unit.status = value;
-                                                });
-                                                updateUnitStatus(
-                                                  selectedKnowledgeBaseId!,
-                                                  unit.id!,
-                                                  value,
-                                                );
-                                              },
-                                              activeColor: theme.primary,
+                                          ),
+                                        ],
+                                      ),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Switch(
+                                            value: unit.status!,
+                                            onChanged: (value) {
+                                              setState(() {
+                                                unit.status = value;
+                                              });
+                                              updateUnitStatus(selectedKnowledgeBaseId!, unit.id!, value);
+                                            },
+                                            activeColor: theme.primary,
+                                          ),
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.delete,
+                                              color: theme.error,
                                             ),
-                                            IconButton(
-                                              icon: Icon(
-                                                Icons.delete,
-                                                color: theme.error,
-                                              ),
-                                              onPressed: () {
-                                                removeUnit(
-                                                  unit.id!,
-                                                  selectedKnowledgeBaseId!,
-                                                );
-                                              },
-                                            ),
-                                          ],
-                                        ),
+                                            onPressed: () {
+                                              removeUnit(
+                                                unit.id!,
+                                                selectedKnowledgeBaseId!,
+                                              );
+                                            },
+                                          ),
+                                        ],
                                       ),
                                     ),
+                                  ),
                                   );
                                 },
                               );
@@ -3008,7 +3000,244 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
       ),
     );
   }
+  void showImportSlackDialog() {
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController tokenController = TextEditingController();
+  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+  final theme = JarvisTheme.of(context);
+
+  showDialog(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Import Slack Workspace', style: theme.titleMedium),
+            IconButton(
+              icon: const Icon(Icons.close, size: 24),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Workspace Name',
+                      style: theme.bodyMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Text(' *', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    hintText: 'Enter Slack workspace name',
+                    hintStyle: theme.bodyMedium.copyWith(
+                      color: theme.secondaryText,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: theme.alternate),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: theme.primary),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Workspace name is required';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Text(
+                      'Slack Token',
+                      style: theme.bodyMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Text(' *', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: tokenController,
+                  decoration: InputDecoration(
+                    hintText: 'xoxb-...',
+                    hintStyle: theme.bodyMedium.copyWith(
+                      color: theme.secondaryText,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: theme.alternate),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: theme.primary),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Slack token is required';
+                    }
+                    if (!value.startsWith('xoxb-')) {
+                      return 'Slack token must start with "xoxb-"';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'How to get Slack Token:',
+                        style: theme.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '• Create a Slack app and install it to your workspace',
+                        style: theme.bodySmall,
+                      ),
+                      Text(
+                        '• Copy the Bot User OAuth Token (starts with xoxb-)',
+                        style: theme.bodySmall,
+                      ),
+                      Text(
+                        '• Need help? Contact us at myjarvischat@gmail.com',
+                        style: theme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+            },
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.grey[200],
+              foregroundColor: theme.primaryText,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text('Back'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                try {
+                  final datasource = Datasource(
+                    type: 'slack',
+                    name: nameController.text.trim(),
+                    credentials: {'token': tokenController.text.trim()},
+                  );
+                  final request = DatasourceRequest(datasources: [datasource]);
+                  final response = await widget.apiStore.kbService
+                      .uploadSlackToKnowledgeBase(
+                        knowledgeId: selectedKnowledgeBaseId!,
+                        request: request,
+                      );
+                  if (response != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Slack workspace imported successfully'),
+                      ),
+                    );
+                    await _fetchUnits(
+                      refresh: true,
+                      knowledgeId: selectedKnowledgeBaseId!,
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to import Slack workspace'),
+                      ),
+                    );
+                  }
+                  Navigator.of(dialogContext).pop();
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to import Slack workspace: $e'),
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[50],
+              foregroundColor: Colors.blue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text('Import'),
+          ),
+        ],
+      );
+    },
+  );
 }
+
+}
+
 
 String _truncateFilename(String filename, {int maxLength = 20}) {
   if (filename.length <= maxLength) return filename;

@@ -138,6 +138,30 @@ mixin _$JarvisService on _JarvisService, Store {
     });
   }
 
+  late final _$isUserTokenLoadingAtom =
+      Atom(name: '_JarvisService.isUserTokenLoading', context: context);
+
+  @override
+  bool get isUserTokenLoading {
+    _$isUserTokenLoadingAtom.reportRead();
+    return super.isUserTokenLoading;
+  }
+
+  @override
+  set isUserTokenLoading(bool value) {
+    _$isUserTokenLoadingAtom.reportWrite(value, super.isUserTokenLoading, () {
+      super.isUserTokenLoading = value;
+    });
+  }
+
+  late final _$getUserTokenAsyncAction =
+      AsyncAction('_JarvisService.getUserToken', context: context);
+
+  @override
+  Future<UserToken?> getUserToken() {
+    return _$getUserTokenAsyncAction.run(() => super.getUserToken());
+  }
+
   late final _$getCurrentUserAsyncAction =
       AsyncAction('_JarvisService.getCurrentUser', context: context);
 
@@ -354,7 +378,8 @@ conversations: ${conversations},
 currentPage: ${currentPage},
 hasMorePrompts: ${hasMorePrompts},
 hasMoreConversations: ${hasMoreConversations},
-promptSearchQuery: ${promptSearchQuery}
+promptSearchQuery: ${promptSearchQuery},
+isUserTokenLoading: ${isUserTokenLoading}
     ''';
   }
 }

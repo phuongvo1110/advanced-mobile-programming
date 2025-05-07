@@ -1,120 +1,99 @@
-/// AssistantResDto
 class AssistantDetail {
-  final String assistantName;
-  final DateTime createdAt;
-  final String? createdBy;
-  final String? description;
-  final String id;
-  final String? instructions;
-  final String openAiAssistantId;
-  final String? openAiThreadIdPlay;
-  final DateTime? updatedAt;
-  final String? updatedBy;
-  final bool? isDefault;
-  final bool? isFavorite;
-  final List<String>? permissions;
-  final Object? config;
-  final DateTime? deletedAt;
+  String? createdAt;
+  String? updatedAt;
+  String? createdBy;
+  String? updatedBy;
+  DateTime? deletedAt;
+  String id;
+  String? description;
+  String? instructions;
+  String assistantName;
+  dynamic config;
+  String? userId;
+  bool? isDefault;
+  bool? isFavorite;
 
-  const AssistantDetail({
-    required this.assistantName,
-    required this.createdAt,
-    this.createdBy,
-    this.description,
-    required this.id,
-    this.instructions,
-    required this.openAiAssistantId,
-    this.openAiThreadIdPlay,
+  AssistantDetail({
+    this.createdAt,
     this.updatedAt,
+    this.createdBy,
     this.updatedBy,
+    this.deletedAt,
+    required this.id,
+    this.description,
+    this.instructions,
+    required this.assistantName,
+    this.config,
+    this.userId,
     this.isDefault,
     this.isFavorite,
-    this.permissions,
-    this.config,
-    this.deletedAt,
   });
+
+  AssistantDetail.fromJson(Map<String, dynamic> json)
+      : id = json['id'] ?? '',
+        assistantName = json['assistantName'] ?? '' {
+    createdAt = json['createdAt'];
+    updatedAt = json['updatedAt'];
+    createdBy = json['createdBy'];
+    updatedBy = json['updatedBy'];
+    deletedAt = json['deletedAt'];
+    description = json['description'];
+    instructions = json['instructions'];
+    config = json['config'];
+    userId = json['userId'];
+    isDefault = json['isDefault'];
+    isFavorite = json['isFavorite'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = {};
+    data['createdAt'] = createdAt;
+    data['updatedAt'] = updatedAt;
+    data['createdBy'] = createdBy;
+    data['updatedBy'] = updatedBy;
+    data['deletedAt'] = deletedAt;
+    data['id'] = id;
+    data['description'] = description;
+    data['instructions'] = instructions;
+    data['assistantName'] = assistantName;
+    if (config != null) {
+      data['config'] = config!.toJson();
+    }
+    data['userId'] = userId;
+    data['isDefault'] = isDefault;
+    data['isFavorite'] = isFavorite;
+    return data;
+  }
+
   AssistantDetail copyWith({
-    String? assistantName,
-    DateTime? createdAt,
+    String? createdAt,
+    String? updatedAt,
     String? createdBy,
-    String? description,
-    String? id,
-    String? instructions,
-    String? openAiAssistantId,
-    String? openAiThreadIdPlay,
-    DateTime? updatedAt,
     String? updatedBy,
+    DateTime? deletedAt,
+    String? id,
+    String? description,
+    String? instructions,
+    String? assistantName,
+    dynamic config,
+    String? userId,
     bool? isDefault,
     bool? isFavorite,
-    List<String>? permissions,
-    Object? config,
-    DateTime? deletedAt,
   }) {
     return AssistantDetail(
-      assistantName: assistantName ?? this.assistantName,
       createdAt: createdAt ?? this.createdAt,
-      createdBy: createdBy ?? this.createdBy,
-      description: description ?? this.description,
-      id: id ?? this.id,
-      instructions: instructions ?? this.instructions,
-      openAiAssistantId: openAiAssistantId ?? this.openAiAssistantId,
-      openAiThreadIdPlay: openAiThreadIdPlay ?? this.openAiThreadIdPlay,
       updatedAt: updatedAt ?? this.updatedAt,
+      createdBy: createdBy ?? this.createdBy,
       updatedBy: updatedBy ?? this.updatedBy,
+      deletedAt: deletedAt ?? this.deletedAt,
+      id: id ?? this.id,
+      description: description ?? this.description,
+      instructions: instructions ?? this.instructions,
+      assistantName: assistantName ?? this.assistantName,
+      config: config ?? this.config,
+      userId: userId ?? this.userId,
       isDefault: isDefault ?? this.isDefault,
       isFavorite: isFavorite ?? this.isFavorite,
-      permissions: permissions ?? this.permissions,
-      config: config ?? this.config,
-      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
-
-  factory AssistantDetail.fromJson(Map<String, dynamic> json) {
-    return AssistantDetail(
-      assistantName: json['assistantName'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      createdBy: json['createdBy'] as String?,
-      description: json['description'] as String?,
-      id: json['id'] as String,
-      instructions: json['instructions'] as String?,
-      openAiAssistantId: json['openAiAssistantId'] as String,
-      openAiThreadIdPlay: json['openAiThreadIdPlay'] as String?,
-      updatedAt:
-          json['updatedAt'] != null
-              ? DateTime.parse(json['updatedAt'] as String)
-              : null,
-      updatedBy: json['updatedBy'] as String?,
-      isDefault: json['isDefault'] as bool?,
-      isFavorite: json['isFavorite'] as bool?,
-      permissions:
-          (json['permissions'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList(),
-      config: json['config'] as Object?,
-      deletedAt:
-          json['deletedAt'] != null
-              ? DateTime.parse(json['deletedAt'] as String)
-              : null,
-    );
-  }
-  Map<String, dynamic> toJson() => {
-    'assistantName': assistantName,
-    'createdAt': createdAt.toIso8601String(),
-    'createdBy': createdBy,
-    'description': description,
-    'id': id,
-    'instructions': instructions,
-    'openAiAssistantId': openAiAssistantId,
-    'openAiThreadIdPlay': openAiThreadIdPlay,
-    'updatedAt': updatedAt?.toIso8601String(),
-    'updatedBy': updatedBy,
-    'isDefault': isDefault,
-    'isFavorite': isFavorite,
-    'permissions': permissions,
-    'config': config,
-    'deletedAt': deletedAt?.toIso8601String(),
-  };
-
-  @override
-  String toString() => 'Assistant(${toJson()})';
 }

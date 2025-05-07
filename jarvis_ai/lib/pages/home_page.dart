@@ -260,7 +260,7 @@ class HomePage extends StatelessWidget {
                             ),
                             GestureDetector(
                               onTap: () {
-                                Navigator.pushNamed(context, '/prompts');
+                                Navigator.pushNamed(context, '/email');
                               },
                               child: Material(
                                 color: Colors.transparent,
