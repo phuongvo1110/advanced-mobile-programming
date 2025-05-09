@@ -83,7 +83,7 @@ class _HomePageState extends State<HomePage> {
   void _initBannerAd() {
     _bannerAd = BannerAd(
       adUnitId:
-          'ca-app-pub-7659303740648994/9683215606', // Test ad unit ID for banner
+          'ca-app-pub-7659303740648994/9683215606',
       size: AdSize.banner,
       request: AdRequest(),
       listener: BannerAdListener(
@@ -103,7 +103,7 @@ class _HomePageState extends State<HomePage> {
   void _initInterstitialAd() {
     InterstitialAd.load(
       adUnitId:
-          'ca-app-pub-7659303740648994/9116255309', // Test ad unit ID for interstitial
+          'ca-app-pub-7659303740648994/9116255309',
       request: AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (InterstitialAd ad) {
@@ -786,164 +786,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     SizedBox(height: 24),
-                    Material(
-                      color: Colors.transparent,
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Container(
-                        width: MediaQuery.sizeOf(context).width,
-                        decoration: BoxDecoration(
-                          color: Color(0xFFF5FBFB),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(
-                            20,
-                            20,
-                            20,
-                            20,
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Text(
-                                'Suggested Topics',
-                                style: JarvisTheme.of(
-                                  context,
-                                ).headlineSmall.copyWith(
-                                  fontFamily: 'Readex Pro',
-                                  color: Color(0xFF101518),
-                                  fontSize: 24,
-                                  letterSpacing: 0.0,
-                                  fontWeight: FontWeight.normal,
-                                ),
-                              ),
-                              SizedBox(height: 16),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                alignment: WrapAlignment.start,
-                                crossAxisAlignment: WrapCrossAlignment.start,
-                                direction: Axis.horizontal,
-                                runAlignment: WrapAlignment.start,
-                                verticalDirection: VerticalDirection.down,
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Color(0xFFE3F2FD),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                        8,
-                                        16,
-                                        8,
-                                        16,
-                                      ),
-                                      child: Text(
-                                        'Writing Assistant',
-                                        style: JarvisTheme.of(
-                                          context,
-                                        ).bodyMedium.copyWith(
-                                          fontFamily: 'Inter',
-                                          color: Color(0xFF1565C0),
-                                          fontSize: 14,
-                                          letterSpacing: 0.0,
-                                          fontWeight: FontWeight.normal,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Color(0xFFFFF3E0),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                        8,
-                                        16,
-                                        8,
-                                        16,
-                                      ),
-                                      child: Text(
-                                        'Math Help',
-                                        style: JarvisTheme.of(
-                                          context,
-                                        ).bodyMedium.copyWith(
-                                          fontFamily: 'Inter',
-                                          color: Color(0xFFEF6C00),
-                                          fontSize: 14,
-                                          letterSpacing: 0.0,
-                                          fontWeight: FontWeight.normal,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Color(0xFFE8F5E9),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                        8,
-                                        16,
-                                        8,
-                                        16,
-                                      ),
-                                      child: Text(
-                                        'Language Learning',
-                                        style: JarvisTheme.of(
-                                          context,
-                                        ).bodyMedium.copyWith(
-                                          fontFamily: 'Inter',
-                                          color: Color(0xFF2E7D32),
-                                          fontSize: 14,
-                                          letterSpacing: 0.0,
-                                          fontWeight: FontWeight.normal,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Color(0xFFFCE4EC),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                        8,
-                                        16,
-                                        8,
-                                        16,
-                                      ),
-                                      child: Text(
-                                        'Creative Ideas',
-                                        style: JarvisTheme.of(
-                                          context,
-                                        ).bodyMedium.copyWith(
-                                          fontFamily: 'Inter',
-                                          color: Color(0xFFC2185B),
-                                          fontSize: 14,
-                                          letterSpacing: 0.0,
-                                          fontWeight: FontWeight.normal,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 24),
-                  ],
+                                      ],
                 ),
               ),
             ),

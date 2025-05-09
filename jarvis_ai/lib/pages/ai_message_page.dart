@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:jarvis_ai/components/card_prompt_widget.dart';
 import 'package:jarvis_ai/models/conversation.dart';
 import 'package:jarvis_ai/models/prompt.dart';
@@ -153,6 +154,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
   Token? currentToken;
   GlobalKey textFieldKey = GlobalKey();
   GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final ImagePicker _picker = ImagePicker();
   @override
   void initState() {
     super.initState();
@@ -183,6 +185,21 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
         }
       }
     });
+  }
+
+  Future<void> _pickImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      final platformFile = PlatformFile(
+        name: image.name,
+        path: image.path,
+        size: await image.length(),
+        bytes: await image.readAsBytes(),
+      );
+      setState(() {
+        _model.addFiles([platformFile]);
+      });
+    }
   }
 
   Future<void> _loadConversations({bool refresh = false}) async {
@@ -337,6 +354,13 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
         return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
       case 'tex':
         return 'application/x-tex';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
       default:
         return 'application/octet-stream';
     }
@@ -1645,7 +1669,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                                           Icon(Icons.local_fire_department),
                                           if (currentToken == null)
                                             SizedBox(
-                                              width: 20,
+                                              width: 15,
                                               height: 20,
                                               child: CircularProgressIndicator(
                                                 strokeWidth: 2,
@@ -1674,24 +1698,47 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                                         ],
                                       ),
                                     ),
-                                    SizedBox(width: 12.0),
+                                    SizedBox(width: 8.0),
                                     Builder(
                                       builder:
                                           (context) => JarvisIconButton(
                                             borderRadius: 24,
-                                            buttonSize: 48,
+                                            buttonSize: 35,
                                             fillColor: theme.secondary,
                                             icon: const Icon(
                                               Icons.book_rounded,
                                               color: Colors.white,
-                                              size: 24,
+                                              size: 20,
                                             ),
                                             onPressed: () {
                                               Scaffold.of(context).openDrawer();
                                             },
                                           ),
                                     ),
-                                    SizedBox(width: 12.0),
+                                    SizedBox(width: 8.0),
+                                    Builder(
+                                      builder:
+                                          (context) => JarvisIconButton(
+                                            borderRadius: 24,
+                                            buttonSize: 35,
+                                            fillColor: theme.secondary,
+                                            icon: Icon(
+                                              Icons.add_circle_outline,
+                                              color:
+                                                  JarvisTheme.of(context).info,
+                                              size: 20.0,
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                messages.clear();
+                                                conversationHistory.clear();
+                                                selectedConversationId = null;
+                                              });
+                                            },
+                                          ),
+                                    ),
+
+                                    SizedBox(width: 8.0),
                                     Expanded(
                                       child: TextFormField(
                                         key: textFieldKey,
@@ -1757,16 +1804,32 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                                                 16.0,
                                                 12.0,
                                               ),
-                                          prefixIcon: IconButton(
-                                            icon: Icon(
-                                              Icons.attach_file,
-                                              color:
-                                                  JarvisTheme.of(
-                                                    context,
-                                                  ).secondaryText,
-                                              size: 24.0,
-                                            ),
-                                            onPressed: _pickFile,
+                                          prefixIcon: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                icon: Icon(
+                                                  Icons.attach_file,
+                                                  color:
+                                                      JarvisTheme.of(
+                                                        context,
+                                                      ).secondaryText,
+                                                  size: 24.0,
+                                                ),
+                                                onPressed: _pickFile,
+                                              ),
+                                              IconButton(
+                                                icon: Icon(
+                                                  Icons.image,
+                                                  color:
+                                                      JarvisTheme.of(
+                                                        context,
+                                                      ).secondaryText,
+                                                  size: 24.0,
+                                                ),
+                                                onPressed: _pickImage,
+                                              ),
+                                            ],
                                           ),
                                         ),
                                         style: JarvisTheme.of(
@@ -1821,55 +1884,142 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
       final parts = message.content.split(':');
       if (parts.length >= 3) {
         final fileName = parts[1];
-        return Padding(
-          padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.75,
-              ),
-              decoration: BoxDecoration(
-                color: JarvisTheme.of(context).secondary,
-                borderRadius: BorderRadius.circular(16.0),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.description,
-                      color: JarvisTheme.of(context).secondaryText,
-                      size: 24.0,
-                    ),
-                    SizedBox(width: 8.0),
-                    Expanded(
-                      child: Text(
-                        fileName,
-                        style: JarvisTheme.of(context).bodyMedium.override(
-                          fontFamily: 'Inter',
-                          color: JarvisTheme.of(context).info,
-                          letterSpacing: 0.0,
+        final fileUrl = parts[2];
+        final extension = fileName.split('.').last.toLowerCase();
+
+        if (['jpg', 'jpeg', 'png', 'gif'].contains(extension)) {
+          return Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+                ),
+                decoration: BoxDecoration(
+                  color: JarvisTheme.of(context).secondary,
+                  borderRadius: BorderRadius.circular(16.0),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Image.network(
+                        fileUrl,
+                        height: 200,
+                        width: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          height: 200,
+                          width: 200,
+                          color: JarvisTheme.of(context).secondaryBackground,
+                          child: Center(
+                            child: Icon(
+                              Icons.error,
+                              color: JarvisTheme.of(context).secondaryText,
+                              size: 40,
+                            ),
+                          ),
                         ),
-                        overflow: TextOverflow.ellipsis,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            height: 200,
+                            width: 200,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        (loadingProgress.expectedTotalBytes ?? 1)
+                                    : null,
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                    ),
-                    SizedBox(width: 8.0),
-                    Text(
-                      'Document',
-                      style: JarvisTheme.of(context).bodySmall.override(
-                        fontFamily: 'Inter',
-                        color: JarvisTheme.of(context).secondaryText,
-                        letterSpacing: 0.0,
+                      SizedBox(height: 8.0),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.image,
+                            color: JarvisTheme.of(context).secondaryText,
+                            size: 24.0,
+                          ),
+                          SizedBox(width: 8.0),
+                          Expanded(
+                            child: Text(
+                              fileName,
+                              style: JarvisTheme.of(
+                                context,
+                              ).bodyMedium.override(
+                                fontFamily: 'Inter',
+                                color: JarvisTheme.of(context).info,
+                                letterSpacing: 0.0,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
+          );
+        } else {
+          return Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+                ),
+                decoration: BoxDecoration(
+                  color: JarvisTheme.of(context).secondary,
+                  borderRadius: BorderRadius.circular(16.0),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.description,
+                        color: JarvisTheme.of(context).secondaryText,
+                        size: 24.0,
+                      ),
+                      SizedBox(width: 8.0),
+                      Expanded(
+                        child: Text(
+                          fileName,
+                          style: JarvisTheme.of(context).bodyMedium.override(
+                            fontFamily: 'Inter',
+                            color: JarvisTheme.of(context).info,
+                            letterSpacing: 0.0,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      SizedBox(width: 8.0),
+                      Text(
+                        'Document',
+                        style: JarvisTheme.of(context).bodySmall.override(
+                          fontFamily: 'Inter',
+                          color: JarvisTheme.of(context).secondaryText,
+                          letterSpacing: 0.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
       }
     }
 

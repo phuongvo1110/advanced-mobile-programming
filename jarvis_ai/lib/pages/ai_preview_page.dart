@@ -1405,7 +1405,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                     showImportSlackDialog();
                   },
                 ),
-                
+
                 ListTile(
                   leading: const Image(
                     image: AssetImage('assets/confluence.png'),
@@ -2402,7 +2402,8 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                 ),
                 onPressed: () {
                   debugPrint('Back button pressed');
-                  Navigator.pop(context);
+                  widget.apiStore.kbService.knowledgeBases.clear();
+                  Navigator.pushNamed(context, '/bots');
                 },
               ),
               title: Row(

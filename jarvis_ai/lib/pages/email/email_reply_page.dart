@@ -22,6 +22,7 @@ class _EmailGeneratorPageState extends State<EmailGeneratorPage>
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   ObservableList<Message> messages = ObservableList<Message>();
   ObservableList<String> improvedActions = ObservableList<String>();
   GlobalKey textFieldKey = GlobalKey();
@@ -41,7 +42,11 @@ class _EmailGeneratorPageState extends State<EmailGeneratorPage>
 
   final TextEditingController _replyEmailContentController =
       TextEditingController();
-
+  String? _replyActionError;
+  String? _replyToError;
+  String? _replySubjectError;
+  String? _replySenderError;
+  String? _replyEmailContentError;
   // Fields for Composing New Email tab
   final TextEditingController _composeToController = TextEditingController();
   final TextEditingController _composeMainIdeaController =
@@ -54,10 +59,32 @@ class _EmailGeneratorPageState extends State<EmailGeneratorPage>
   final TextEditingController _composeSenderController =
       TextEditingController();
   final TextEditingController _composeBodyController = TextEditingController();
-  String _emailFormat = 'Plain Text';
+  String? _composeMainIdeaError;
+  String? _composeActionError;
+  String? _composeToError;
+  String? _composeSubjectError;
+  String? _composeSenderError;
+  String? _composeBodyError;
   String _tone = 'Friendly';
   String _language = 'US English';
   String _selectedLength = 'Long';
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) return 'This field cannot be empty';
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(value))
+      return 'Please enter a valid email address';
+    return null;
+  }
+
+  String? _validateRequired(String? value) {
+    if (value == null || value.isEmpty) return 'This field cannot be empty';
+    return null;
+  }
+
+  String? _validateContent(String? value) {
+    if (value == null || value.isEmpty) return 'Please provide some content';
+    return null;
+  }
 
   @override
   void initState() {
@@ -287,7 +314,6 @@ class _EmailGeneratorPageState extends State<EmailGeneratorPage>
             "length": _selectedLength,
             "formality": "neutral",
             "tone": _tone,
-            "format": _emailFormat,
           },
           "language": _language,
         },
@@ -381,264 +407,324 @@ class _EmailGeneratorPageState extends State<EmailGeneratorPage>
       ),
       endDrawer: Drawer(
         width: 400,
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _tabController.index == 0
-                    ? 'Reply to Email'
-                    : 'Compose New Email',
-                style: theme.titleLarge,
-              ),
-              SizedBox(height: 20),
-              if (_tabController.index == 0) ...[
-                TextFormField(
-                  controller: _replyActionController,
-                  decoration: InputDecoration(
-                    labelText: 'Action',
-                    border: OutlineInputBorder(),
-                  ),
+        child: Form(
+          key: _formKey, // Attach form key
+          child: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _tabController.index == 0
+                      ? 'Reply to Email'
+                      : 'Compose New Email',
+                  style: theme.titleLarge,
                 ),
-                SizedBox(height: 16),
-                TextFormField(
-                  controller: _replySenderController,
-                  decoration: InputDecoration(
-                    labelText: 'Sender',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                SizedBox(height: 16),
-                TextFormField(
-                  controller: _replyToController,
-                  decoration: InputDecoration(
-                    labelText: 'To',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                SizedBox(height: 16),
-                TextFormField(
-                  controller: _replySubjectController,
-                  decoration: InputDecoration(
-                    labelText: 'Subject',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                SizedBox(height: 16),
-                Expanded(
-                  child: TextFormField(
-                    controller: _replyEmailContentController,
+                SizedBox(height: 20),
+                if (_tabController.index == 0) ...[
+                  TextFormField(
+                    controller: _replyActionController,
                     decoration: InputDecoration(
-                      labelText: 'Email Content',
+                      labelText: 'Action',
                       border: OutlineInputBorder(),
+                      errorText: _replyActionError,
                     ),
-                    maxLines: null,
-                    expands: true,
-                    textAlignVertical: TextAlignVertical.top,
+                    validator: _validateRequired,
+                    onChanged: (value) {
+                      setState(() {
+                        _replyActionError = _validateRequired(value);
+                      });
+                    },
                   ),
-                ),
-                SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton(
-                      onPressed: isLoading ? null : _generateReplyFromDrawer,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.primary,
-                        foregroundColor: theme.primaryText,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: Text(
-                        'Generate Reply',
-                        style: theme.bodyMedium.copyWith(
-                          color: theme.primaryText,
-                        ),
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed:
-                          isLoading ? null : _suggestReplyIdeasFromDrawer,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.secondary,
-                        foregroundColor: theme.primaryText,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: Text(
-                        'Suggest Reply Ideas',
-                        style: theme.bodyMedium.copyWith(
-                          color: theme.primaryText,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ] else ...[
-                TextFormField(
-                  controller: _composeMainIdeaController,
-                  decoration: InputDecoration(
-                    labelText: 'Idea',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                SizedBox(height: 16),
-                TextFormField(
-                  controller: _composeActionController,
-                  decoration: InputDecoration(
-                    labelText: 'Action',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                SizedBox(height: 16),
-                TextFormField(
-                  controller: _composeSenderController,
-                  decoration: InputDecoration(
-                    labelText: 'From',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                SizedBox(height: 16),
-                TextFormField(
-                  controller: _composeToController,
-                  decoration: InputDecoration(
-                    labelText: 'To',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                SizedBox(height: 16),
-                TextFormField(
-                  controller: _composeSubjectController,
-                  decoration: InputDecoration(
-                    labelText: 'Subject',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                SizedBox(height: 16),
-                Expanded(
-                  child: TextFormField(
-                    controller: _composeBodyController,
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _replySenderController,
                     decoration: InputDecoration(
-                      labelText: 'Email Body',
+                      labelText: 'Sender',
                       border: OutlineInputBorder(),
+                      errorText: _replySenderError,
                     ),
-                    maxLines: null,
-                    expands: true,
-                    textAlignVertical: TextAlignVertical.top,
+                    validator: _validateEmail,
+                    onChanged: (value) {
+                      setState(() {
+                        _replySenderError = _validateEmail(value);
+                      });
+                    },
                   ),
-                ),
-                SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedLength,
-                  decoration: InputDecoration(
-                    labelText: 'Length',
-                    border: OutlineInputBorder(),
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _replyToController,
+                    decoration: InputDecoration(
+                      labelText: 'To',
+                      border: OutlineInputBorder(),
+                      errorText: _replyToError,
+                    ),
+                    validator: _validateEmail,
+                    onChanged: (value) {
+                      setState(() {
+                        _replyToError = _validateEmail(value);
+                      });
+                    },
                   ),
-                  items:
-                      ['Long', 'Short'].map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedLength = newValue ?? 'Long';
-                    });
-                  },
-                ),
-                SizedBox(height: 16),
-                Row(
-                  children: [
-                    Text('Email Format'),
-                    SizedBox(width: 16),
-                    ToggleButtons(
-                      isSelected: [
-                        _emailFormat == 'Plain Text',
-                        _emailFormat == 'HTML',
-                      ],
-                      onPressed: (index) {
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _replySubjectController,
+                    decoration: InputDecoration(
+                      labelText: 'Subject',
+                      border: OutlineInputBorder(),
+                      errorText: _replySubjectError,
+                    ),
+                    validator: _validateRequired,
+                    onChanged: (value) {
+                      setState(() {
+                        _replySubjectError = _validateRequired(value);
+                      });
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _replyEmailContentController,
+                      decoration: InputDecoration(
+                        labelText: 'Email Content',
+                        border: OutlineInputBorder(),
+                        errorText: _replyEmailContentError,
+                      ),
+                      validator: _validateContent,
+                      onChanged: (value) {
                         setState(() {
-                          _emailFormat = index == 0 ? 'Plain Text' : 'HTML';
+                          _replyEmailContentError = _validateContent(value);
                         });
                       },
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Text('Plain Text'),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Text('HTML'),
-                        ),
-                      ],
+                      maxLines: null,
+                      expands: true,
+                      textAlignVertical: TextAlignVertical.top,
                     ),
-                  ],
-                ),
-                SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _tone,
-                  decoration: InputDecoration(
-                    labelText: 'Choose a tone',
-                    border: OutlineInputBorder(),
                   ),
-                  items:
-                      ['Friendly', 'Professional', 'Casual'].map((
-                        String value,
-                      ) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text('$value'),
-                        );
-                      }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _tone = newValue ?? 'Friendly';
-                    });
-                  },
-                ),
-                SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _language,
-                  decoration: InputDecoration(
-                    labelText: 'Language',
-                    border: OutlineInputBorder(),
+                  SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton(
+                        onPressed:
+                            isLoading
+                                ? null
+                                : () {
+                                  if (_formKey.currentState!.validate()) {
+                                    _suggestReplyIdeasFromDrawer();
+                                  }
+                                },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.secondary,
+                          foregroundColor: theme.primaryText,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                        child: Text(
+                          'Suggest Reply Ideas',
+                          style: theme.bodyMedium.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  items:
-                      ['US English', 'Vietnamese', 'Spanish'].map((
-                        String value,
-                      ) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _language = newValue ?? 'US English';
-                    });
-                  },
-                ),
-                SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: isLoading ? null : _generateEmailFromDrawer,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.primary,
-                    foregroundColor: theme.primaryText,
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ] else ...[
+                  TextFormField(
+                    controller: _composeMainIdeaController,
+                    decoration: InputDecoration(
+                      labelText: 'Idea',
+                      border: OutlineInputBorder(),
+                      errorText: _composeMainIdeaError,
+                    ),
+                    validator: _validateRequired,
+                    onChanged: (value) {
+                      setState(() {
+                        _composeMainIdeaError = _validateRequired(value);
+                      });
+                    },
                   ),
-                  child: Text(
-                    'Generate',
-                    style: theme.bodyMedium.copyWith(color: theme.primaryText),
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _composeActionController,
+                    decoration: InputDecoration(
+                      labelText: 'Action',
+                      border: OutlineInputBorder(),
+                      errorText: _composeActionError,
+                    ),
+                    validator: _validateRequired,
+                    onChanged: (value) {
+                      setState(() {
+                        _composeActionError = _validateRequired(value);
+                      });
+                    },
                   ),
-                ),
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _composeSenderController,
+                    decoration: InputDecoration(
+                      labelText: 'From',
+                      border: OutlineInputBorder(),
+                      errorText: _composeSenderError,
+                    ),
+                    validator: _validateEmail,
+                    onChanged: (value) {
+                      setState(() {
+                        _composeSenderError = _validateEmail(value);
+                      });
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _composeToController,
+                    decoration: InputDecoration(
+                      labelText: 'To',
+                      border: OutlineInputBorder(),
+                      errorText: _composeToError,
+                    ),
+                    validator: _validateEmail,
+                    onChanged: (value) {
+                      setState(() {
+                        _composeToError = _validateEmail(value);
+                      });
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _composeSubjectController,
+                    decoration: InputDecoration(
+                      labelText: 'Subject',
+                      border: OutlineInputBorder(),
+                      errorText: _composeSubjectError,
+                    ),
+                    validator: _validateRequired,
+                    onChanged: (value) {
+                      setState(() {
+                        _composeSubjectError = _validateRequired(value);
+                      });
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _composeBodyController,
+                      decoration: InputDecoration(
+                        labelText: 'Email Body',
+                        border: OutlineInputBorder(),
+                        errorText: _composeBodyError,
+                      ),
+                      validator: _validateContent,
+                      onChanged: (value) {
+                        setState(() {
+                          _composeBodyError = _validateContent(value);
+                        });
+                      },
+                      maxLines: null,
+                      expands: true,
+                      textAlignVertical: TextAlignVertical.top,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedLength,
+                    decoration: InputDecoration(
+                      labelText: 'Length',
+                      border: OutlineInputBorder(),
+                    ),
+                    items:
+                        ['Long', 'Short'].map((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _selectedLength = newValue ?? 'Long';
+                      });
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _tone,
+                    decoration: InputDecoration(
+                      labelText: 'Choose a tone',
+                      border: OutlineInputBorder(),
+                    ),
+                    items:
+                        ['Friendly', 'Professional', 'Casual'].map((
+                          String value,
+                        ) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _tone = newValue ?? 'Friendly';
+                      });
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _language,
+                    decoration: InputDecoration(
+                      labelText: 'Language',
+                      border: OutlineInputBorder(),
+                    ),
+                    items:
+                        ['US English', 'Vietnamese', 'Spanish'].map((
+                          String value,
+                        ) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _language = newValue ?? 'US English';
+                      });
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton(
+                    onPressed:
+                        isLoading
+                            ? null
+                            : () {
+                              if (_formKey.currentState!.validate()) {
+                                _generateEmailFromDrawer();
+                              }
+                            },
+                    style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.secondary,
+                          foregroundColor: theme.primaryText,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                        child: Text(
+                          'Response Email',
+                          style: theme.bodyMedium.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold
+                          ),
+                        ),
+                  ),
+                    ]
+                  )
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

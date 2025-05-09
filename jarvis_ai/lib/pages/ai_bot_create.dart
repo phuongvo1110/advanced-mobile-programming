@@ -250,37 +250,45 @@ class _AIBotCreaePageWidgetState extends State<AIBotCreatePageWidget> {
                 description: description,
               );
 
-      if (widget.existingAssistantId == null &&
-          _model.slackDataSource != null &&
-          assistant != null) {
+      // Handle Slack and Confluence uploads only for new assistant creation
+      if (widget.existingAssistantId == null && assistant != null) {
+        // Fetch knowledge bases and wait for the result
         await widget.apiStore.kbService.getKnowledgeBases(
           assistantId: assistant.id,
+          refresh: true
         );
-        final slackUnits = await widget.apiStore.kbService
-            .uploadSlackToKnowledgeBase(
-              knowledgeId:
-                  widget.apiStore.kbService.knowledgeBases.first.id as String,
-              request: _model.slackDataSource!,
-            );
-        if (slackUnits == null || slackUnits.isEmpty) {
-          throw Exception('Failed to upload Slack data to knowledge base');
-        }
-      }
 
-      if (widget.existingAssistantId == null &&
-          _model.confluenceDataSource != null &&
-          assistant != null) {
-        await widget.apiStore.kbService.getKnowledgeBases(
-          assistantId: assistant.id,
-        );
-        final confluenceUnit = await widget.apiStore.kbService
-            .uploadConfluenceToKnowledgeBase(
-              knowledgeId:
-                  widget.apiStore.kbService.knowledgeBases.first.id as String,
-              request: _model.confluenceDataSource!,
+        // Check if knowledgeBases is populated
+        if (widget.apiStore.kbService.knowledgeBases.isEmpty) {
+          throw Exception('No knowledge bases found for the assistant');
+        }
+
+        // Handle Slack data source
+        if (_model.slackDataSource != null) {
+          final slackUnits = await widget.apiStore.kbService
+              .uploadSlackToKnowledgeBase(
+                knowledgeId:
+                    widget.apiStore.kbService.knowledgeBases.first.id as String,
+                request: _model.slackDataSource!,
+              );
+          if (slackUnits == null || slackUnits.isEmpty) {
+            throw Exception('Failed to upload Slack data to knowledge base');
+          }
+        }
+
+        // Handle Confluence data source
+        if (_model.confluenceDataSource != null) {
+          final confluenceUnit = await widget.apiStore.kbService
+              .uploadConfluenceToKnowledgeBase(
+                knowledgeId:
+                    widget.apiStore.kbService.knowledgeBases.first.id as String,
+                request: _model.confluenceDataSource!,
+              );
+          if (confluenceUnit == null) {
+            throw Exception(
+              'Failed to upload Confluence data to knowledge base',
             );
-        if (confluenceUnit == null) {
-          throw Exception('Failed to upload Confluence data to knowledge base');
+          }
         }
       }
 
@@ -295,7 +303,10 @@ class _AIBotCreaePageWidgetState extends State<AIBotCreatePageWidget> {
           ),
         );
       }
+
+      // Navigate or pop based on whether this is a new assistant or an update
       if (widget.existingAssistantId == null) {
+        widget.apiStore.kbService.knowledgeBases.clear();
         await Navigator.push(
           context,
           MaterialPageRoute(
@@ -308,6 +319,7 @@ class _AIBotCreaePageWidgetState extends State<AIBotCreatePageWidget> {
           ),
         );
       } else {
+        widget.apiStore.kbService.knowledgeBases.clear();
         Navigator.pop(context, true);
       }
     } catch (e, stackTrace) {
