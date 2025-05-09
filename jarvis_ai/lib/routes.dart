@@ -4,7 +4,7 @@ import 'package:jarvis_ai/pages/ai_bots_managing.dart';
 import 'package:jarvis_ai/pages/ai_message_page.dart';
 import 'package:jarvis_ai/pages/ai_preview_page.dart';
 import 'package:jarvis_ai/pages/ai_subscribtion_page.dart';
-import 'package:jarvis_ai/pages/email_reply_page.dart';
+import 'package:jarvis_ai/pages/email/email_reply_page.dart';
 import 'package:jarvis_ai/pages/home_page.dart';
 import 'package:jarvis_ai/pages/knowledgebase/kb_managing_page.dart';
 import 'package:jarvis_ai/pages/login_page.dart';
@@ -77,7 +77,7 @@ class AppRoutes {
         );
       case '/email':
         return MaterialPageRoute(
-          builder: (_) => EmailReplyIdeasPage(apiStore: apiStore),
+          builder: (_) => EmailGeneratorPage(apiStore: apiStore),
         );
       default:
         return MaterialPageRoute(builder: (_) => LoginPage(apiStore: apiStore));

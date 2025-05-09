@@ -614,6 +614,41 @@ mixin _$KBService on _KBService, Store {
             assistantName: assistantName));
   }
 
+  late final _$uploadConfluenceToKnowledgeBaseAsyncAction = AsyncAction(
+      '_KBService.uploadConfluenceToKnowledgeBase',
+      context: context);
+
+  @override
+  Future<Unit?> uploadConfluenceToKnowledgeBase(
+      {required String knowledgeId, required DatasourceRequest request}) {
+    return _$uploadConfluenceToKnowledgeBaseAsyncAction.run(() => super
+        .uploadConfluenceToKnowledgeBase(
+            knowledgeId: knowledgeId, request: request));
+  }
+
+  late final _$updateKnowledgeBaseAsyncAction =
+      AsyncAction('_KBService.updateKnowledgeBase', context: context);
+
+  @override
+  Future<KnowledgeBase?> updateKnowledgeBase(
+      {required String knowledgeId,
+      required String knowledgeName,
+      String? description}) {
+    return _$updateKnowledgeBaseAsyncAction.run(() => super.updateKnowledgeBase(
+        knowledgeId: knowledgeId,
+        knowledgeName: knowledgeName,
+        description: description));
+  }
+
+  late final _$deleteKnowledgeBaseAsyncAction =
+      AsyncAction('_KBService.deleteKnowledgeBase', context: context);
+
+  @override
+  Future<bool> deleteKnowledgeBase({required String knowledgeId}) {
+    return _$deleteKnowledgeBaseAsyncAction
+        .run(() => super.deleteKnowledgeBase(knowledgeId: knowledgeId));
+  }
+
   @override
   String toString() {
     return '''

@@ -1405,6 +1405,20 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                     showImportSlackDialog();
                   },
                 ),
+                
+                ListTile(
+                  leading: const Image(
+                    image: AssetImage('assets/confluence.png'),
+                    width: 20.0,
+                    height: 20.0,
+                  ),
+                  title: const Text('Confluence'),
+                  subtitle: const Text('Connect to Confluence'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    showImportConfluenceDialog();
+                  },
+                ),
                 ListTile(
                   leading: const Icon(Icons.cloud),
                   title: const Text('Google Drive'),
@@ -1421,12 +1435,6 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                   leading: const Icon(Icons.code),
                   title: const Text('GitLab Repository'),
                   subtitle: const Text('Connect to GitLab repositories'),
-                  enabled: false,
-                ),
-                ListTile(
-                  leading: const Icon(Icons.description),
-                  title: const Text('Confluence'),
-                  subtitle: const Text('Connect to Confluence'),
                   enabled: false,
                 ),
               ],
@@ -1738,7 +1746,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () {
-                      Navigator.pop(context); // Close the drawer
+                      Navigator.pop(context, true); // Close the drawer
                     },
                   ),
                 ],
@@ -2110,51 +2118,58 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                                         ),
                                       ),
                                       child: ListTile(
-                                      leading: typeTransform(unit.type!, context),
-                                      title: Text(
-                                        unit.name ?? 'Untitled',
-                                        style: theme.bodyMedium,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      subtitle: Row(
-                                        children: [
-                                          Text(
-                                            '${unit.size!.toStringAsFixed(2)} KB',
-                                            style: theme.bodySmall.copyWith(
-                                              color: Colors.green,
+                                        leading: typeTransform(
+                                          unit.type!,
+                                          context,
+                                        ),
+                                        title: Text(
+                                          unit.name ?? 'Untitled',
+                                          style: theme.bodyMedium,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        subtitle: Row(
+                                          children: [
+                                            Text(
+                                              '${unit.size!.toStringAsFixed(2)} KB',
+                                              style: theme.bodySmall.copyWith(
+                                                color: Colors.green,
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Switch(
-                                            value: unit.status!,
-                                            onChanged: (value) {
-                                              setState(() {
-                                                unit.status = value;
-                                              });
-                                              updateUnitStatus(selectedKnowledgeBaseId!, unit.id!, value);
-                                            },
-                                            activeColor: theme.primary,
-                                          ),
-                                          IconButton(
-                                            icon: Icon(
-                                              Icons.delete,
-                                              color: theme.error,
+                                          ],
+                                        ),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Switch(
+                                              value: unit.status!,
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  unit.status = value;
+                                                });
+                                                updateUnitStatus(
+                                                  selectedKnowledgeBaseId!,
+                                                  unit.id!,
+                                                  value,
+                                                );
+                                              },
+                                              activeColor: theme.primary,
                                             ),
-                                            onPressed: () {
-                                              removeUnit(
-                                                unit.id!,
-                                                selectedKnowledgeBaseId!,
-                                              );
-                                            },
-                                          ),
-                                        ],
+                                            IconButton(
+                                              icon: Icon(
+                                                Icons.delete,
+                                                color: theme.error,
+                                              ),
+                                              onPressed: () {
+                                                removeUnit(
+                                                  unit.id!,
+                                                  selectedKnowledgeBaseId!,
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                  ),
                                   );
                                 },
                               );
@@ -3000,244 +3015,612 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
       ),
     );
   }
-  void showImportSlackDialog() {
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController tokenController = TextEditingController();
-  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-  final theme = JarvisTheme.of(context);
 
-  showDialog(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Import Slack Workspace', style: theme.titleMedium),
-            IconButton(
-              icon: const Icon(Icons.close, size: 24),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-          ],
-        ),
-        content: Form(
-          key: formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Workspace Name',
-                      style: theme.bodyMedium.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Text(' *', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    hintText: 'Enter Slack workspace name',
-                    hintStyle: theme.bodyMedium.copyWith(
-                      color: theme.secondaryText,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: theme.alternate),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: theme.primary),
-                    ),
-                    errorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.red),
-                    ),
-                    focusedErrorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.red),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Workspace name is required';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Text(
-                      'Slack Token',
-                      style: theme.bodyMedium.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Text(' *', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: tokenController,
-                  decoration: InputDecoration(
-                    hintText: 'xoxb-...',
-                    hintStyle: theme.bodyMedium.copyWith(
-                      color: theme.secondaryText,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: theme.alternate),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: theme.primary),
-                    ),
-                    errorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.red),
-                    ),
-                    focusedErrorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.red),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Slack token is required';
-                    }
-                    if (!value.startsWith('xoxb-')) {
-                      return 'Slack token must start with "xoxb-"';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+  void showImportConfluenceDialog() {
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController wikiPageUrlController = TextEditingController(
+      text: 'https://example.atlassian.net/wiki',
+    );
+    final TextEditingController usernameController = TextEditingController();
+    final TextEditingController accessTokenController = TextEditingController();
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final theme = JarvisTheme.of(context);
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Import Confluence Source', style: theme.titleMedium),
+              IconButton(
+                icon: const Icon(Icons.close, size: 24),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                },
+              ),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
                       Text(
-                        'How to get Slack Token:',
+                        'Unit Name',
                         style: theme.bodyMedium.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '• Create a Slack app and install it to your workspace',
-                        style: theme.bodySmall,
-                      ),
-                      Text(
-                        '• Copy the Bot User OAuth Token (starts with xoxb-)',
-                        style: theme.bodySmall,
-                      ),
-                      Text(
-                        '• Need help? Contact us at myjarvischat@gmail.com',
-                        style: theme.bodySmall,
-                      ),
+                      const Text(' *', style: TextStyle(color: Colors.red)),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-            },
-            style: TextButton.styleFrom(
-              backgroundColor: Colors.grey[200],
-              foregroundColor: theme.primaryText,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            child: const Text('Back'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (formKey.currentState!.validate()) {
-                try {
-                  final datasource = Datasource(
-                    type: 'slack',
-                    name: nameController.text.trim(),
-                    credentials: {'token': tokenController.text.trim()},
-                  );
-                  final request = DatasourceRequest(datasources: [datasource]);
-                  final response = await widget.apiStore.kbService
-                      .uploadSlackToKnowledgeBase(
-                        knowledgeId: selectedKnowledgeBaseId!,
-                        request: request,
-                      );
-                  if (response != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Slack workspace imported successfully'),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter Confluence unit name',
+                      hintStyle: theme.bodyMedium.copyWith(
+                        color: theme.secondaryText,
                       ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.alternate),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.primary),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Unit name is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        'Confluence Wiki Page URL',
+                        style: theme.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(' *', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: wikiPageUrlController,
+                    decoration: InputDecoration(
+                      hintText: 'https://example.atlassian.net/wiki',
+                      hintStyle: theme.bodyMedium.copyWith(
+                        color: theme.secondaryText,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.alternate),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.primary),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Wiki page URL is required';
+                      }
+                      final urlPattern = RegExp(
+                        r'^(https?:\/\/)?([\w\d\-_]+(\.[\w\d\-_]+)+)([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?$',
+                      );
+                      if (!urlPattern.hasMatch(value)) {
+                        return 'Please enter a valid URL';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        'Confluence Username',
+                        style: theme.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(' *', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: usernameController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter your Confluence username',
+                      hintStyle: theme.bodyMedium.copyWith(
+                        color: theme.secondaryText,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.alternate),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.primary),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Username is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        'Confluence Access Token',
+                        style: theme.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(' *', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: accessTokenController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter your Confluence access token',
+                      hintStyle: theme.bodyMedium.copyWith(
+                        color: theme.secondaryText,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.alternate),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.primary),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Access token is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'How to get Confluence Access Token:',
+                          style: theme.bodyMedium.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '• Log in to your Confluence account',
+                          style: theme.bodySmall,
+                        ),
+                        Text(
+                          '• Go to Profile > Personal Access Tokens > Create token',
+                          style: theme.bodySmall,
+                        ),
+                        Text(
+                          '• Copy the generated token and paste it here',
+                          style: theme.bodySmall,
+                        ),
+                        Text(
+                          '• Need help? Contact us at myjarvischat@gmail.com',
+                          style: theme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.grey[200],
+                foregroundColor: theme.primaryText,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+              ),
+              child: const Text('Back'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  try {
+                    final datasource = Datasource(
+                      type: 'confluence',
+                      name: nameController.text.trim(),
+                      credentials: {
+                        'url': wikiPageUrlController.text.trim(),
+                        'username': usernameController.text.trim(),
+                        'token': accessTokenController.text.trim(),
+                      },
                     );
-                    await _fetchUnits(
-                      refresh: true,
-                      knowledgeId: selectedKnowledgeBaseId!,
+                    final datasourceRequest = DatasourceRequest(
+                      datasources: [datasource],
                     );
-                  } else {
+                    final response = await widget.apiStore.kbService
+                        .uploadConfluenceToKnowledgeBase(
+                          knowledgeId: selectedKnowledgeBaseId!,
+                          request: datasourceRequest,
+                        );
+                    if (response != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Confluence source imported successfully',
+                          ),
+                        ),
+                      );
+                      await _fetchUnits(
+                        refresh: true,
+                        knowledgeId: selectedKnowledgeBaseId!,
+                      );
+                      await _fetchGlobalKnowledgeBases(refresh: true);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to import Confluence source'),
+                        ),
+                      );
+                    }
+                    Navigator.of(dialogContext).pop();
+                  } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Failed to import Slack workspace'),
+                      SnackBar(
+                        content: Text('Failed to import Confluence source: $e'),
                       ),
                     );
                   }
-                  Navigator.of(dialogContext).pop();
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to import Slack workspace: $e'),
-                    ),
-                  );
                 }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[50],
-              foregroundColor: Colors.blue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[50],
+                foregroundColor: Colors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: const Text('Import'),
             ),
-            child: const Text('Import'),
+          ],
+        );
+      },
+    );
+  }
+
+  void showImportSlackDialog() {
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController tokenController = TextEditingController();
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final theme = JarvisTheme.of(context);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-        ],
-      );
-    },
-  );
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Import Slack Workspace', style: theme.titleMedium),
+              IconButton(
+                icon: const Icon(Icons.close, size: 24),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                },
+              ),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Workspace Name',
+                        style: theme.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(' *', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter Slack workspace name',
+                      hintStyle: theme.bodyMedium.copyWith(
+                        color: theme.secondaryText,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.alternate),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.primary),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Workspace name is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        'Slack Token',
+                        style: theme.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(' *', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: tokenController,
+                    decoration: InputDecoration(
+                      hintText: 'xoxb-...',
+                      hintStyle: theme.bodyMedium.copyWith(
+                        color: theme.secondaryText,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.alternate),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.primary),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Slack token is required';
+                      }
+                      if (!value.startsWith('xoxb-')) {
+                        return 'Slack token must start with "xoxb-"';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'How to get Slack Token:',
+                          style: theme.bodyMedium.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '• Create a Slack app and install it to your workspace',
+                          style: theme.bodySmall,
+                        ),
+                        Text(
+                          '• Copy the Bot User OAuth Token (starts with xoxb-)',
+                          style: theme.bodySmall,
+                        ),
+                        Text(
+                          '• Need help? Contact us at myjarvischat@gmail.com',
+                          style: theme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.grey[200],
+                foregroundColor: theme.primaryText,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+              ),
+              child: const Text('Back'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  try {
+                    final datasource = Datasource(
+                      type: 'slack',
+                      name: nameController.text.trim(),
+                      credentials: {'token': tokenController.text.trim()},
+                    );
+                    final request = DatasourceRequest(
+                      datasources: [datasource],
+                    );
+                    final response = await widget.apiStore.kbService
+                        .uploadSlackToKnowledgeBase(
+                          knowledgeId: selectedKnowledgeBaseId!,
+                          request: request,
+                        );
+                    if (response != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Slack workspace imported successfully',
+                          ),
+                        ),
+                      );
+                      await _fetchUnits(
+                        refresh: true,
+                        knowledgeId: selectedKnowledgeBaseId!,
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to import Slack workspace'),
+                        ),
+                      );
+                    }
+                    Navigator.of(dialogContext).pop();
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to import Slack workspace: $e'),
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[50],
+                foregroundColor: Colors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+              ),
+              child: const Text('Import'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
-
-}
-
 
 String _truncateFilename(String filename, {int maxLength = 20}) {
   if (filename.length <= maxLength) return filename;

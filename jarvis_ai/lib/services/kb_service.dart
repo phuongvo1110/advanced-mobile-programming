@@ -817,66 +817,64 @@ abstract class _KBService with Store {
     });
 
     try {
-  UserModel? user = await getUser();
-  final requestBody = {
-    'message': message
-  };
-  print('Send Message Body: $requestBody');
+      UserModel? user = await getUser();
+      final requestBody = {'message': message};
+      print('Send Message Body: $requestBody');
 
-  // Make a streaming request using _apiService
-  final stream = await _apiService.stream(
-    '/kb-core/v1/ai-assistant/$assistantId/ask',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-jarvis-guid': '',
-      'Authorization': 'Bearer ${user!.accessToken}',
-      'Accept': 'text/event-stream',
-    },
-    body: requestBody,
-  );
+      // Make a streaming request using _apiService
+      final stream = await _apiService.stream(
+        '/kb-core/v1/ai-assistant/$assistantId/ask',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+          'Accept': 'text/event-stream',
+        },
+        body: requestBody,
+      );
 
-  StringBuffer fullMessage = StringBuffer();
-  String? conversationId;
+      StringBuffer fullMessage = StringBuffer();
+      String? conversationId;
 
-  // Process the streamed response
-  await for (var line in stream) {
-    print('Streamed line: $line');
-    if (line.startsWith('event: message')) {
-      // Next line should be the data
-      continue;
-    } else if (line.startsWith('data: ')) {
-      final dataString = line.substring(6); // Remove "data: " prefix
-      if (dataString.isEmpty) continue;
+      // Process the streamed response
+      await for (var line in stream) {
+        print('Streamed line: $line');
+        if (line.startsWith('event: message')) {
+          // Next line should be the data
+          continue;
+        } else if (line.startsWith('data: ')) {
+          final dataString = line.substring(6); // Remove "data: " prefix
+          if (dataString.isEmpty) continue;
 
-      try {
-        final data = jsonDecode(dataString) as Map<String, dynamic>;
-        final content = data['content'] as String? ?? '';
-        conversationId = data['conversationId'] as String?;
-        fullMessage.write(content);
-      } catch (e) {
-        print('Error parsing data line: $e');
-        continue;
+          try {
+            final data = jsonDecode(dataString) as Map<String, dynamic>;
+            final content = data['content'] as String? ?? '';
+            conversationId = data['conversationId'] as String?;
+            fullMessage.write(content);
+          } catch (e) {
+            print('Error parsing data line: $e');
+            continue;
+          }
+        }
       }
-    }
-  }
 
-  // After the stream ends, create a single ThreadMessage with the concatenated content
-  final assistantMessage = ThreadMessage(
-    role: 'assistant',
-    createdAt: (DateTime.now().millisecondsSinceEpoch ~/ 1000),
-    content: fullMessage.toString(),
-  );
-  messages.add(assistantMessage);
-  print('Final Assistant Message: ${assistantMessage.content}');
-} catch (e) {
-  print('Error sending message: $e');
-  if (e is ApiException && e.statusCode == 401) rethrow;
-  rethrow;
-} finally {
-  runInAction(() {
-    isMessageLoading = false;
-  });
-}
+      // After the stream ends, create a single ThreadMessage with the concatenated content
+      final assistantMessage = ThreadMessage(
+        role: 'assistant',
+        createdAt: (DateTime.now().millisecondsSinceEpoch ~/ 1000),
+        content: fullMessage.toString(),
+      );
+      messages.add(assistantMessage);
+      print('Final Assistant Message: ${assistantMessage.content}');
+    } catch (e) {
+      print('Error sending message: $e');
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      rethrow;
+    } finally {
+      runInAction(() {
+        isMessageLoading = false;
+      });
+    }
   }
 
   @action
@@ -1060,6 +1058,83 @@ abstract class _KBService with Store {
       if (e is ApiException && e.statusCode == 401) rethrow;
       print('Error updating instruction: $e');
       return null;
+    }
+  }
+
+  @action
+  Future<Unit?> uploadConfluenceToKnowledgeBase({
+    required String knowledgeId,
+    required DatasourceRequest request,
+  }) async {
+    try {
+      final user = await getUser();
+      final response = await _apiService.post(
+        '/kb-core/v1/knowledge/$knowledgeId/datasources',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+        body: request.toJson(),
+      );
+      print('Upload Confluence response: $response');
+      return Unit.fromJson(response);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error uploading Confluence to knowledge base: $e');
+      return null;
+    }
+  }
+
+  @action
+  Future<KnowledgeBase?> updateKnowledgeBase({
+    required String knowledgeId,
+    required String knowledgeName,
+    String? description,
+  }) async {
+    try {
+      final user = await getUser();
+      final requestBody = {
+        'knowledgeName': knowledgeName,
+        'description': description,
+      };
+      final response = await _apiService.patch(
+        '/kb-core/v1/knowledge/$knowledgeId',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+        body: requestBody,
+      );
+      return KnowledgeBase.fromJson(response);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error updating knowledge base: $e');
+      return null;
+    }
+  }
+
+  @action
+  Future<bool> deleteKnowledgeBase({required String knowledgeId}) async {
+    try {
+      final user = await getUser();
+      final response = await _apiService.delete(
+        '/kb-core/v1/knowledge/$knowledgeId',
+        body: {},
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+      );
+      final index = globalKnowledgeBases.indexWhere((p) => p.id == knowledgeId);
+      if (index != -1) globalKnowledgeBases.removeAt(index);
+      return true;
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error deleting knowledge base: $e');
+      return false;
     }
   }
 }

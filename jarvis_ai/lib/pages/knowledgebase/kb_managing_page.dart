@@ -178,11 +178,11 @@ class _KnowledgeBasePageState extends State<KnowledgeBasePage> {
 
   Future<void> _deleteKnowledgeBase(String id) async {
     try {
-      // await widget.apiStore.kbService.deleteKnowledgeBase(id: id);
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   const SnackBar(content: Text('Knowledge base deleted successfully')),
-      // );
-      // await _fetchGlobalKnowledgeBases(refresh: true);
+      await widget.apiStore.kbService.deleteKnowledgeBase(knowledgeId: id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Knowledge base deleted successfully')),
+      );
+      await _fetchGlobalKnowledgeBases(refresh: true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to delete knowledge base: $e')),
@@ -376,11 +376,11 @@ class _KnowledgeBasePageState extends State<KnowledgeBasePage> {
                   onPressed: () async {
                     if (formKey.currentState!.validate()) {
                       try {
-                        // await widget.apiStore.kbService.updateKnowledgeBase(
-                        //   id: id,
-                        //   name: nameController.text.trim(),
-                        //   description: descriptionController.text.trim(),
-                        // );
+                        await widget.apiStore.kbService.updateKnowledgeBase(
+                          knowledgeId: id,
+                          knowledgeName: nameController.text.trim(),
+                          description: descriptionController.text.trim(),
+                        );
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
@@ -607,7 +607,10 @@ class _KnowledgeBasePageState extends State<KnowledgeBasePage> {
                                       ),
                                     ),
                                     child: ListTile(
-                                      leading: typeTransform(unit.type!, context),
+                                      leading: typeTransform(
+                                        unit.type!,
+                                        context,
+                                      ),
                                       title: Text(
                                         unit.name ?? 'Untitled',
                                         style: theme.bodyMedium,
@@ -632,7 +635,11 @@ class _KnowledgeBasePageState extends State<KnowledgeBasePage> {
                                               setState(() {
                                                 unit.status = value;
                                               });
-                                              updateUnitStatus(selectedKnowledgeBaseId!, unit.id!, value);
+                                              updateUnitStatus(
+                                                selectedKnowledgeBaseId!,
+                                                unit.id!,
+                                                value,
+                                              );
                                             },
                                             activeColor: theme.primary,
                                           ),
@@ -641,11 +648,24 @@ class _KnowledgeBasePageState extends State<KnowledgeBasePage> {
                                               Icons.delete,
                                               color: theme.error,
                                             ),
-                                            onPressed: () {
-                                              removeUnit(
-                                                unit.id!,
-                                                selectedKnowledgeBaseId!,
-                                              );
+                                            onPressed: () async {
+                                              if (await confirm(
+                                                context,
+                                                title: Text('Delete Confirm'),
+                                                content: Text(
+                                                  'Do you want to delete ${unit.name}?',
+                                                ),
+                                                textOK: Text('Yes'),
+                                                textCancel: Text('No'),
+                                              )) {
+                                                removeUnit(
+                                                  unit.id!,
+                                                  selectedKnowledgeBaseId!,
+                                                );
+                                                await _fetchGlobalKnowledgeBases(
+                                                  refresh: true,
+                                                );
+                                              }
                                             },
                                           ),
                                         ],
@@ -892,6 +912,363 @@ class _KnowledgeBasePageState extends State<KnowledgeBasePage> {
     );
   }
 
+  void showImportConfluenceDialog() {
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController wikiPageUrlController = TextEditingController(
+      text: 'https://example.atlassian.net/wiki',
+    );
+    final TextEditingController usernameController = TextEditingController();
+    final TextEditingController accessTokenController = TextEditingController();
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final theme = JarvisTheme.of(context);
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Import Confluence Source', style: theme.titleMedium),
+              IconButton(
+                icon: const Icon(Icons.close, size: 24),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                },
+              ),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Unit Name',
+                        style: theme.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(' *', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter Confluence unit name',
+                      hintStyle: theme.bodyMedium.copyWith(
+                        color: theme.secondaryText,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.alternate),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.primary),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Unit name is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        'Confluence Wiki Page URL',
+                        style: theme.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(' *', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: wikiPageUrlController,
+                    decoration: InputDecoration(
+                      hintText: 'https://example.atlassian.net/wiki',
+                      hintStyle: theme.bodyMedium.copyWith(
+                        color: theme.secondaryText,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.alternate),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.primary),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Wiki page URL is required';
+                      }
+                      final urlPattern = RegExp(
+                        r'^(https?:\/\/)?([\w\d\-_]+(\.[\w\d\-_]+)+)([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?$',
+                      );
+                      if (!urlPattern.hasMatch(value)) {
+                        return 'Please enter a valid URL';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        'Confluence Username',
+                        style: theme.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(' *', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: usernameController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter your Confluence username',
+                      hintStyle: theme.bodyMedium.copyWith(
+                        color: theme.secondaryText,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.alternate),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.primary),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Username is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        'Confluence Access Token',
+                        style: theme.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(' *', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: accessTokenController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter your Confluence access token',
+                      hintStyle: theme.bodyMedium.copyWith(
+                        color: theme.secondaryText,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.alternate),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: theme.primary),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Access token is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'How to get Confluence Access Token:',
+                          style: theme.bodyMedium.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '• Log in to your Confluence account',
+                          style: theme.bodySmall,
+                        ),
+                        Text(
+                          '• Go to Profile > Personal Access Tokens > Create token',
+                          style: theme.bodySmall,
+                        ),
+                        Text(
+                          '• Copy the generated token and paste it here',
+                          style: theme.bodySmall,
+                        ),
+                        Text(
+                          '• Need help? Contact us at myjarvischat@gmail.com',
+                          style: theme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.grey[200],
+                foregroundColor: theme.primaryText,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+              ),
+              child: const Text('Back'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  try {
+                    final datasource = Datasource(
+                      type: 'confluence',
+                      name: nameController.text.trim(),
+                      credentials: {
+                        'url': wikiPageUrlController.text.trim(),
+                        'username': usernameController.text.trim(),
+                        'token': accessTokenController.text.trim(),
+                      },
+                    );
+                    final datasourceRequest = DatasourceRequest(
+                      datasources: [datasource],
+                    );
+                    final response = await widget.apiStore.kbService
+                        .uploadConfluenceToKnowledgeBase(
+                          knowledgeId: selectedKnowledgeBaseId!,
+                          request: datasourceRequest,
+                        );
+                    if (response != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Confluence source imported successfully',
+                          ),
+                        ),
+                      );
+                      await _fetchUnits(
+                        refresh: true,
+                        knowledgeId: selectedKnowledgeBaseId!,
+                      );
+                      await _fetchGlobalKnowledgeBases(refresh: true);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to import Confluence source'),
+                        ),
+                      );
+                    }
+                    Navigator.of(dialogContext).pop();
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to import Confluence source: $e'),
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[50],
+                foregroundColor: Colors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+              ),
+              child: const Text('Import'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showCreateKnowledgeBaseDialog() {
     final TextEditingController knowledgeBaseNameController =
         TextEditingController();
@@ -1128,7 +1505,11 @@ class _KnowledgeBasePageState extends State<KnowledgeBasePage> {
     });
   }
 
-  Future<void> updateUnitStatus(String knowledgeId, String unitId, bool status) async {
+  Future<void> updateUnitStatus(
+    String knowledgeId,
+    String unitId,
+    bool status,
+  ) async {
     try {
       await widget.apiStore.kbService.updateStatusUnit(
         knowledgeId: knowledgeId,
@@ -1202,6 +1583,19 @@ class _KnowledgeBasePageState extends State<KnowledgeBasePage> {
                   },
                 ),
                 ListTile(
+                  leading: const Image(
+                    image: AssetImage('assets/confluence.png'),
+                    width: 20.0,
+                    height: 20.0,
+                  ),
+                  title: const Text('Confluence'),
+                  subtitle: const Text('Connect to Confluence'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    showImportConfluenceDialog();
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.cloud),
                   title: const Text('Google Drive'),
                   subtitle: const Text('Coming soon'),
@@ -1217,12 +1611,6 @@ class _KnowledgeBasePageState extends State<KnowledgeBasePage> {
                   leading: const Icon(Icons.code),
                   title: const Text('GitLab Repository'),
                   subtitle: const Text('Connect to GitLab repositories'),
-                  enabled: false,
-                ),
-                ListTile(
-                  leading: const Icon(Icons.description),
-                  title: const Text('Confluence'),
-                  subtitle: const Text('Connect to Confluence'),
                   enabled: false,
                 ),
               ],
@@ -2023,6 +2411,12 @@ dynamic typeTransform(String type, BuildContext context) {
     case 'slack':
       return Image(
         image: AssetImage('assets/Slack_icon.png'),
+        width: 20,
+        height: 20,
+      );
+    case 'confluence':
+      return Image(
+        image: AssetImage('assets/confluence.png'),
         width: 20,
         height: 20,
       );

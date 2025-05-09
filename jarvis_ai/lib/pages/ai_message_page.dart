@@ -15,6 +15,7 @@ import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
 import 'package:mobx/mobx.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
 class AssistantOption {
   final String value;
   final String label;
@@ -186,9 +187,10 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
 
   Future<void> _loadConversations({bool refresh = false}) async {
     try {
+      if (currentAssistant == null) return;
       await widget.apiStore.jarvisService.getConversations(
         refresh: refresh,
-        cursor: _model.conversationSearchController!.text ?? '',
+        cursor: _model.conversationSearchController?.text ?? '',
         assistanId: currentAssistant?.id as String,
         assistantModel: currentAssistant?.model as String,
       );
@@ -650,7 +652,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
         content: message,
         assistant: currentAssistant!,
         conversationHistory: conversationHistory,
-        conversationId: selectedConversationId
+        conversationId: selectedConversationId,
       );
       if (response == null || response?.message == null) {
         setState(() {
@@ -877,7 +879,8 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
               );
             }
           }
-          conversationHistory = messages.map((message) => message.toJson()).toList();
+          conversationHistory =
+              messages.map((message) => message.toJson()).toList();
         }
       });
     } catch (e) {
@@ -946,7 +949,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
         assistant: currentAssistant!,
         conversationHistory: conversationHistory,
         files: fileUrls,
-        conversationId: selectedConversationId
+        conversationId: selectedConversationId,
       );
       if (response == null || response?.message == null) {
         setState(() {
@@ -1000,6 +1003,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
       _scrollToBottom();
     }
   }
+
   void _selectConversation(String conversationId) {
     if (currentAssistant == null) return;
 
@@ -1009,6 +1013,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
     _loadConversationHistory(conversationId);
     Navigator.pop(context);
   }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -1472,6 +1477,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                         Conversation conversation =
                             widget.apiStore.jarvisService.conversations[index];
                         return CardConversationWidget(
+                          selectedConversationId: selectedConversationId,
                           conversation: conversation,
                           onTap: () => _selectConversation(conversation.id),
                         );
@@ -1637,21 +1643,34 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                                       child: Row(
                                         children: [
                                           Icon(Icons.local_fire_department),
-                                          !currentToken!.unlimited ? Text(
-                                            currentToken?.availableTokens
-                                                    .toString() ??
-                                                '0',
-                                            style: JarvisTheme.of(
-                                              context,
-                                            ).bodyMedium.override(
-                                              fontFamily: 'Inter',
-                                              color:
-                                                  JarvisTheme.of(
-                                                    context,
-                                                  ).primaryText,
-                                              fontWeight: FontWeight.w600,
+                                          if (currentToken == null)
+                                            SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          else if (currentToken!.unlimited)
+                                            FaIcon(
+                                              FontAwesomeIcons.infinity,
+                                              size: 15,
+                                            )
+                                          else
+                                            Text(
+                                              currentToken!.availableTokens
+                                                  .toString(),
+                                              style: JarvisTheme.of(
+                                                context,
+                                              ).bodyMedium.override(
+                                                fontFamily: 'Inter',
+                                                color:
+                                                    JarvisTheme.of(
+                                                      context,
+                                                    ).primaryText,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                             ),
-                                          ) : FaIcon(FontAwesomeIcons.infinity, size: 15),
                                         ],
                                       ),
                                     ),
@@ -1904,10 +1923,12 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
 class CardConversationWidget extends StatelessWidget {
   final Conversation conversation;
   final VoidCallback onTap;
+  final String? selectedConversationId;
 
   const CardConversationWidget({
     required this.conversation,
     required this.onTap,
+    this.selectedConversationId,
   });
 
   @override
@@ -1958,13 +1979,29 @@ class CardConversationWidget extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          conversation.title ?? 'New Conversation',
-                          style: JarvisTheme.of(context).bodyLarge.copyWith(
-                            fontFamily: 'Inter',
-                            letterSpacing: 0.0,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                conversation.title ?? 'Unknown ',
+                                style: JarvisTheme.of(
+                                  context,
+                                ).titleMedium.copyWith(
+                                  fontFamily: 'Inter',
+                                  letterSpacing: 0.0,
+                                  color:
+                                      selectedConversationId == conversation.id
+                                          ? JarvisTheme.of(context).primary
+                                          : JarvisTheme.of(context).primaryText,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (selectedConversationId != null &&
+                                selectedConversationId == conversation.id)
+                              Icon(Icons.check_circle, color: Colors.green),
+                          ],
                         ),
                         Padding(
                           padding: const EdgeInsetsDirectional.fromSTEB(

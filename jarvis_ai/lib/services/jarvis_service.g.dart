@@ -368,6 +368,54 @@ mixin _$JarvisService on _JarvisService, Store {
     return _$getUsageAsyncAction.run(() => super.getUsage());
   }
 
+  late final _$responseEmailAsyncAction =
+      AsyncAction('_JarvisService.responseEmail', context: context);
+
+  @override
+  Future<EmailResponse?> responseEmail(
+      {required String mainIdea,
+      required String action,
+      required String email,
+      required String subject,
+      required String sender,
+      required String receiver,
+      String length = 'long',
+      String formality = 'neutral',
+      String tone = 'friendly',
+      String language = 'vietnamese'}) {
+    return _$responseEmailAsyncAction.run(() => super.responseEmail(
+        mainIdea: mainIdea,
+        action: action,
+        email: email,
+        subject: subject,
+        sender: sender,
+        receiver: receiver,
+        length: length,
+        formality: formality,
+        tone: tone,
+        language: language));
+  }
+
+  late final _$suggestReplyIdeaAsyncAction =
+      AsyncAction('_JarvisService.suggestReplyIdea', context: context);
+
+  @override
+  Future<List<String>?> suggestReplyIdea(
+      {required String action,
+      required String email,
+      required String subject,
+      required String sender,
+      required String receiver,
+      String language = 'vietnamese'}) {
+    return _$suggestReplyIdeaAsyncAction.run(() => super.suggestReplyIdea(
+        action: action,
+        email: email,
+        subject: subject,
+        sender: sender,
+        receiver: receiver,
+        language: language));
+  }
+
   @override
   String toString() {
     return '''

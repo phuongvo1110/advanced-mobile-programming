@@ -59,8 +59,12 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
     _scrollController.addListener(_scrollListener);
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
-    _model.dropDownValueController ??= FormFieldController<String>(_selectedSort);
-    _model.favoriteFilterValueController ??= FormFieldController<String>(_selectedFavoriteFilter);
+    _model.dropDownValueController ??= FormFieldController<String>(
+      _selectedSort,
+    );
+    _model.favoriteFilterValueController ??= FormFieldController<String>(
+      _selectedFavoriteFilter,
+    );
     _loadAssistants(refresh: true);
   }
 
@@ -126,7 +130,7 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
             size: 24.0,
           ),
           onPressed: () {
-            Navigator.pushNamed(context, '/');
+            Navigator.pop(context, true);
           },
         ),
         title: Text(
@@ -145,25 +149,7 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
             ],
           ),
         ),
-        actions: [
-          Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 12.0, 0.0),
-            child: JarvisIconButton(
-              borderColor: Colors.transparent,
-              borderRadius: 30.0,
-              borderWidth: 1.0,
-              buttonSize: 60.0,
-              icon: Icon(
-                Icons.add_circle_outline_rounded,
-                color: JarvisTheme.of(context).secondaryBackground,
-                size: 30.0,
-              ),
-              onPressed: () async {
-                Navigator.pushNamed(context, '/create-bot');
-              },
-            ),
-          ),
-        ],
+        actions: [],
         centerTitle: false,
         elevation: 0.0,
       ),
@@ -278,7 +264,12 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
                       borderColor: JarvisTheme.of(context).alternate,
                       borderWidth: 1.0,
                       borderRadius: 8.0,
-                      margin: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 8.0, 0.0),
+                      margin: EdgeInsetsDirectional.fromSTEB(
+                        0.0,
+                        0.0,
+                        8.0,
+                        0.0,
+                      ),
                       hidesUnderline: true,
                       isSearchable: false,
                       isMultiSelect: false,
@@ -287,7 +278,9 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
                     JarvisDropDown<String>(
                       controller:
                           _model.favoriteFilterValueController ??=
-                              FormFieldController<String>(_selectedFavoriteFilter),
+                              FormFieldController<String>(
+                                _selectedFavoriteFilter,
+                              ),
                       options: ['All', 'Favorites'],
                       onChanged: (String? val) {
                         if (val == null) return;
@@ -314,7 +307,12 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
                       borderColor: JarvisTheme.of(context).alternate,
                       borderWidth: 1.0,
                       borderRadius: 8.0,
-                      margin: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
+                      margin: EdgeInsetsDirectional.fromSTEB(
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                      ),
                       hidesUnderline: true,
                       isSearchable: false,
                       isMultiSelect: false,
@@ -349,7 +347,8 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
                         widget.apiStore.kbService.assistants.length +
                         (widget.apiStore.kbService.hasMoreAssistants ? 1 : 0),
                     itemBuilder: (context, index) {
-                      if (index >= widget.apiStore.kbService.assistants.length) {
+                      if (index >=
+                          widget.apiStore.kbService.assistants.length) {
                         return widget.apiStore.kbService.isLoading
                             ? Center(child: CircularProgressIndicator())
                             : SizedBox.shrink();

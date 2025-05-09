@@ -54,67 +54,67 @@ class _JarvisIconButtonState extends State<JarvisIconButton> {
   }
 
   void _updateIcon() {
-    final isFontAwesome = widget.icon is FaIcon;
-    if (isFontAwesome) {
+    if (widget.icon is FaIcon) {
       FaIcon icon = widget.icon as FaIcon;
       effectiveIcon = FaIcon(
         icon.icon,
-        size: icon.size,
+        size: icon.size ?? 24.0, // Default size if not specified
+        color: icon.color,
       );
-      iconSize = icon.size;
+      iconSize = icon.size ?? 24.0;
       iconColor = icon.color;
-    } else {
+    } else if (widget.icon is Icon) {
       Icon icon = widget.icon as Icon;
       effectiveIcon = Icon(
         icon.icon,
-        size: icon.size,
+        size: icon.size ?? 24.0, // Default size if not specified
+        color: icon.color,
       );
-      iconSize = icon.size;
+      iconSize = icon.size ?? 24.0;
       iconColor = icon.color;
+    } else {
+      // If it's not an Icon or FaIcon, use the widget as-is
+      effectiveIcon = widget.icon;
+      iconSize = null; // No specific size to apply
+      iconColor = null; // No specific color to apply
     }
   }
 
   @override
   Widget build(BuildContext context) {
     ButtonStyle style = ButtonStyle(
-      shape: MaterialStateProperty.resolveWith<OutlinedBorder>(
-        (states) {
-          return RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(widget.borderRadius ?? 0),
-            side: BorderSide(
-              color: widget.borderColor ?? Colors.transparent,
-              width: widget.borderWidth ?? 0,
-            ),
-          );
-        },
-      ),
-      iconColor: MaterialStateProperty.resolveWith<Color?>(
-        (states) {
-          if (states.contains(MaterialState.disabled) &&
-              widget.disabledIconColor != null) {
-            return widget.disabledIconColor;
-          }
-          if (states.contains(MaterialState.hovered) &&
-              widget.hoverIconColor != null) {
-            return widget.hoverIconColor;
-          }
-          return iconColor;
-        },
-      ),
-      backgroundColor: MaterialStateProperty.resolveWith<Color?>(
-        (states) {
-          if (states.contains(MaterialState.disabled) &&
-              widget.disabledColor != null) {
-            return widget.disabledColor;
-          }
-          if (states.contains(MaterialState.hovered) &&
-              widget.hoverColor != null) {
-            return widget.hoverColor;
-          }
+      shape: MaterialStateProperty.resolveWith<OutlinedBorder>((states) {
+        return RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(widget.borderRadius ?? 0),
+          side: BorderSide(
+            color: widget.borderColor ?? Colors.transparent,
+            width: widget.borderWidth ?? 0,
+          ),
+        );
+      }),
+      iconColor: MaterialStateProperty.resolveWith<Color?>((states) {
+        if (states.contains(MaterialState.disabled) &&
+            widget.disabledIconColor != null) {
+          return widget.disabledIconColor;
+        }
+        if (states.contains(MaterialState.hovered) &&
+            widget.hoverIconColor != null) {
+          return widget.hoverIconColor;
+        }
+        return iconColor;
+      }),
+      backgroundColor: MaterialStateProperty.resolveWith<Color?>((states) {
+        if (states.contains(MaterialState.disabled) &&
+            widget.disabledColor != null) {
+          return widget.disabledColor;
+        }
+        if (states.contains(MaterialState.hovered) &&
+            widget.hoverColor != null) {
+          return widget.hoverColor;
+        }
 
-          return widget.fillColor;
-        },
-      ),
+        return widget.fillColor;
+      }),
       overlayColor: MaterialStateProperty.resolveWith<Color?>((states) {
         if (states.contains(MaterialState.pressed)) {
           return null;
@@ -134,34 +134,37 @@ class _JarvisIconButtonState extends State<JarvisIconButton> {
         child: IgnorePointer(
           ignoring: (widget.showLoadingIndicator && loading),
           child: IconButton(
-            icon: (widget.showLoadingIndicator && loading)
-                ? Container(
-                    width: iconSize,
-                    height: iconSize,
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        iconColor ?? Colors.white,
+            icon:
+                (widget.showLoadingIndicator && loading)
+                    ? Container(
+                      width: iconSize ?? widget.buttonSize,
+                      height: iconSize ?? widget.buttonSize,
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          iconColor ?? Colors.white,
+                        ),
                       ),
-                    ),
-                  )
-                : effectiveIcon,
-            onPressed: widget.onPressed == null
-                ? null
-                : () async {
-                    if (loading) {
-                      return;
-                    }
-                    setState(() => loading = true);
-                    try {
-                      await widget.onPressed!();
-                    } finally {
-                      if (mounted) {
-                        setState(() => loading = false);
+                    )
+                    : effectiveIcon,
+            onPressed:
+                widget.onPressed == null
+                    ? null
+                    : () async {
+                      if (loading) {
+                        return;
                       }
-                    }
-                  },
+                      setState(() => loading = true);
+                      try {
+                        await widget.onPressed!();
+                      } finally {
+                        if (mounted) {
+                          setState(() => loading = false);
+                        }
+                      }
+                    },
             splashRadius: widget.buttonSize,
             style: style,
+            padding: EdgeInsets.zero, // Ensure no extra padding affects layout
           ),
         ),
       ),

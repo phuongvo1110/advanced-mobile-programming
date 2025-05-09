@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:jarvis_ai/models/conversation.dart';
+import 'package:jarvis_ai/models/email_response.dart';
 import 'package:jarvis_ai/models/member.dart';
 import 'package:jarvis_ai/models/prompt.dart';
 import 'package:jarvis_ai/models/query_message.dart';
@@ -614,6 +615,91 @@ abstract class _JarvisService with Store {
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) rethrow;
       print('Error send message: $e');
+    }
+  }
+
+  @action
+  Future<EmailResponse?> responseEmail({
+    required String mainIdea,
+    required String action,
+    required String email,
+    required String subject,
+    required String sender,
+    required String receiver,
+    String length = 'long',
+    String formality = 'neutral',
+    String tone = 'friendly',
+    String language = 'vietnamese',
+  }) async {
+    try {
+      final user = await getUser();
+      final requestBody = {
+        'mainIdea': mainIdea,
+        'action': action,
+        'email': email,
+        'metadata': {
+          'context': [],
+          'subject': subject,
+          'sender': sender,
+          'receiver': receiver,
+          'style': {'length': length, 'formality': formality, 'tone': tone},
+          'language': language,
+        },
+      };
+
+      final response = await _apiService.post(
+        '/api/v1/ai-email',
+        headers: {
+          'x-jarvis-guid': '',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+        body: requestBody,
+      );
+
+      return EmailResponse.fromJson(response);
+    } catch (e) {
+      print('Error generating email response: $e');
+      return null;
+    }
+  }
+  @action
+  Future<List<String>?> suggestReplyIdea({
+    required String action,
+    required String email,
+    required String subject,
+    required String sender,
+    required String receiver,
+    String language = 'vietnamese',
+  }) async {
+    try {
+      final user = await getUser();
+      final requestBody = {
+        'action': action,
+        'email': email,
+        'metadata': {
+          'context': [],
+          'subject': subject,
+          'sender': sender,
+          'receiver': receiver,
+          'language': language
+        },
+      };
+      print('Request body: $requestBody');
+      final response = await _apiService.post(
+        '/api/v1/ai-email/reply-ideas',
+        headers: {
+          'x-jarvis-guid': '',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+        body: requestBody,
+      );
+      print('Response: $response');
+      return List<String>.from(response['ideas'] ?? []);
+    } catch (e) {
+      print('Error generating email response: $e');
+      return null;
     }
   }
 }
