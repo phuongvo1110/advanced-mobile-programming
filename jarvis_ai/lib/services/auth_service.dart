@@ -97,9 +97,9 @@ abstract class _AuthService with Store {
       final duration =
           tokenExpiryTime!.difference(DateTime.now()).inSeconds - 60;
       if (duration > 0) {
-        Future.delayed(Duration(seconds: duration), _refreshToken);
+        Future.delayed(Duration(seconds: duration), refreshToken);
       } else {
-        _refreshToken();
+        refreshToken();
       }
     }
   }
@@ -174,7 +174,7 @@ abstract class _AuthService with Store {
   }
 
   @action
-  Future<bool> _refreshToken() async {
+  Future<bool> refreshToken() async {
     if (currentUser == null || currentUser!.refreshToken.isEmpty) {
       print('No refresh token available');
       return false;

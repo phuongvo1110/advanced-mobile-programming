@@ -143,16 +143,22 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _showInterstitialAd(String route) {
+  void _showInterstitialAd(String route) async {
     if (_isInterstitialAdReady && _interstitialAd != null) {
-      _interstitialAd!.show().then((_) {
+      _interstitialAd!.show().then((_) async {
         print('Interstitial ad shown successfully');
         // Navigate after the ad is shown or dismissed
-        Navigator.pushNamed(context, route);
+        final result = await Navigator.pushNamed(context, route);
+        if (result != null && result == true) {
+          _loadAssistants(refresh: true);
+        }
       });
     } else {
       // If ad isn't ready, navigate directly
-      Navigator.pushNamed(context, route);
+      final result = await Navigator.pushNamed(context, route);
+        if (result != null && result == true) {
+          _loadAssistants(refresh: true);
+        }
       _initInterstitialAd(); // Try loading a new ad
     }
   }

@@ -20,22 +20,25 @@ abstract class _ApiStore with Store {
   @action
   void initServices(GlobalKey<NavigatorState> navigatorKey) {
     _navigatorKey = navigatorKey;
-    authService = AuthService(
-      apiService: ApiService(
-        baseUrl: 'https://auth-api.dev.jarvis.cx',
-        onUnauthorized: _handleUnauthorized,
-      ),
+    apiService = ApiService(
+      baseUrl: 'https://auth-api.dev.jarvis.cx',
+      onUnauthorized: _handleUnauthorized,
+      authService: null, // Will be set later
     );
+    authService = AuthService(apiService: apiService);
+    apiService.authService = authService;
     jarvisService = JarvisService(
       apiService: ApiService(
         baseUrl: 'https://api.dev.jarvis.cx',
         onUnauthorized: _handleUnauthorized,
+        authService: authService
       ),
     );
     kbService = KBService(
       apiService: ApiService(
         baseUrl: 'https://knowledge-api.dev.jarvis.cx',
         onUnauthorized: _handleUnauthorized,
+        authService: authService
       ),
     );
   }

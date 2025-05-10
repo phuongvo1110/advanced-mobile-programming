@@ -1,4 +1,4 @@
-package com.example.jarvis_ai
+package com.amp.jarvis_ai
 
 import io.flutter.embedding.android.FlutterActivity
 

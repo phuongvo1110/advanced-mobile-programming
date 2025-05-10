@@ -440,7 +440,7 @@ class _EmailGeneratorPageState extends State<EmailGeneratorPage>
                   TextFormField(
                     controller: _replySenderController,
                     decoration: InputDecoration(
-                      labelText: 'Sender',
+                      labelText: 'From',
                       border: OutlineInputBorder(),
                       errorText: _replySenderError,
                     ),

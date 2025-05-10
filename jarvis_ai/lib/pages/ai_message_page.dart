@@ -1319,7 +1319,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
             size: 24.0,
           ),
           onPressed: () {
-            Navigator.pop(context);
+            Navigator.pop(context, true);
           },
         ),
         title: Text(

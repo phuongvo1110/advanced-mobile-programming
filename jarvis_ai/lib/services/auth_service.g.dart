@@ -99,12 +99,12 @@ mixin _$AuthService on _AuthService, Store {
     return _$logoutAsyncAction.run(() => super.logout());
   }
 
-  late final _$_refreshTokenAsyncAction =
-      AsyncAction('_AuthService._refreshToken', context: context);
+  late final _$refreshTokenAsyncAction =
+      AsyncAction('_AuthService.refreshToken', context: context);
 
   @override
-  Future<bool> _refreshToken() {
-    return _$_refreshTokenAsyncAction.run(() => super._refreshToken());
+  Future<bool> refreshToken() {
+    return _$refreshTokenAsyncAction.run(() => super.refreshToken());
   }
 
   @override

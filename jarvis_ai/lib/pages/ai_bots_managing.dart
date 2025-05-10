@@ -130,7 +130,7 @@ class _AIBotsManagingPageWidgetState extends State<AiBotsManagingPage> {
             size: 24.0,
           ),
           onPressed: () {
-            Navigator.pop(context, true);
+            Navigator.pushNamed(context, '/');
           },
         ),
         title: Text(

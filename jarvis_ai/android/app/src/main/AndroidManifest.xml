@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <application
-        android:label="jarvis_ai"
+        android:label="Jarvis AI"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <meta-data
