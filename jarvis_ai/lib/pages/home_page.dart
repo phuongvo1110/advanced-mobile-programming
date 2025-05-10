@@ -179,63 +179,72 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         backgroundColor: JarvisTheme.of(context).secondary,
         automaticallyImplyLeading: false,
-        title: Padding(
-          padding: EdgeInsetsDirectional.fromSTEB(55, 0, 0, 0),
+        title: Row(
+          children: [
+        Image.asset(
+          'assets/app-logo.webp',
+          width: 28,
+          height: 28,
+        ),
+        SizedBox(width: 8),
+        Padding(
+          padding: EdgeInsetsDirectional.fromSTEB(0, 0, 0, 0),
           child: Text(
             'Jarvis.AI',
             style: JarvisTheme.of(context).displaySmall.copyWith(
-              fontFamily: 'Poppins',
-              color: JarvisTheme.of(context).primaryText,
-              letterSpacing: 0.0,
-              fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  color: JarvisTheme.of(context).secondaryText,
-                  offset: Offset(2.0, 2.0),
-                  blurRadius: 2.0,
-                ),
-              ],
+          fontFamily: 'Poppins',
+          color: JarvisTheme.of(context).primaryText,
+          letterSpacing: 0.0,
+          fontWeight: FontWeight.bold,
+          shadows: [
+            Shadow(
+              color: JarvisTheme.of(context).secondaryText,
+              offset: Offset(2.0, 2.0),
+              blurRadius: 2.0,
+            ),
+          ],
             ),
           ),
         ),
+          ],
+        ),
         actions: [
           Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0, 0, 12, 0),
-            child: JarvisIconButton(
-              borderColor: Colors.transparent,
-              borderRadius: 30,
-              borderWidth: 1,
-              buttonSize: 60,
-              icon: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Color(
-                    (Random().nextDouble() * 0xFFFFFF).toInt(),
-                  ).withOpacity(1.0),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    usernameInitial,
-                    style: TextStyle(
-                      fontSize: 20.0,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              onPressed: () async {
-                Navigator.pushNamed(context, '/profile');
-              },
+        padding: EdgeInsetsDirectional.fromSTEB(0, 0, 12, 0),
+        child: JarvisIconButton(
+          borderColor: Colors.transparent,
+          borderRadius: 30,
+          borderWidth: 1,
+          buttonSize: 60,
+          icon: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+          color: Color(
+            (Random().nextDouble() * 0xFFFFFF).toInt(),
+          ).withOpacity(1.0),
+          shape: BoxShape.circle,
             ),
+            child: Center(
+          child: Text(
+            usernameInitial,
+            style: TextStyle(
+              fontSize: 20.0,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+            ),
+          ),
+          onPressed: () async {
+            Navigator.pushNamed(context, '/profile');
+          },
+        ),
           ),
         ],
         centerTitle: false,
         elevation: 0,
-      ),
-      body: Column(
+      ),body: Column(
         children: [
           Expanded(
             child: Padding(

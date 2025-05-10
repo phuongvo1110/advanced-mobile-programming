@@ -95,6 +95,7 @@ flutter:
     - assets/splash-screen.png
     - assets/Slack_icon.png
     - assets/confluence.png
+    - assets/app-logo.webp
     # To add assets to your application, add an assets section, like this:
     # assets:
     #   - images/a_dot_burr.jpeg
