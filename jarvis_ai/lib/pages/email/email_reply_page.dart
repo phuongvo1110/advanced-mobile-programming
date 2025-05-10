@@ -304,7 +304,7 @@ class _EmailGeneratorPageState extends State<EmailGeneratorPage>
     final response = await widget.apiStore.jarvisService.sendMessage(
       content: jsonEncode({
         "mainIdea": description,
-        "action": "Compose new email",
+        "action": "Response Email",
         "metadata": {
           "context": [],
           "subject": _composeSubjectController.text,
@@ -417,7 +417,7 @@ class _EmailGeneratorPageState extends State<EmailGeneratorPage>
                 Text(
                   _tabController.index == 0
                       ? 'Reply to Email'
-                      : 'Compose New Email',
+                      : 'Response Email',
                   style: theme.titleLarge,
                 ),
                 SizedBox(height: 20),

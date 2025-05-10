@@ -975,6 +975,11 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
         files: fileUrls,
         conversationId: selectedConversationId,
       );
+      if (selectedConversationId == null && response?.conversationId != null) {
+        setState(() {
+          selectedConversationId = response?.conversationId;
+        });
+      }
       if (response == null || response?.message == null) {
         setState(() {
           messages.add(
@@ -1394,6 +1399,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                     size: 26.0,
                   ),
                   onPressed: () {
+                    _loadConversations(refresh: true);
                     Scaffold.of(context).openEndDrawer();
                   },
                 ),
@@ -1910,18 +1916,20 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                         height: 200,
                         width: 200,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          height: 200,
-                          width: 200,
-                          color: JarvisTheme.of(context).secondaryBackground,
-                          child: Center(
-                            child: Icon(
-                              Icons.error,
-                              color: JarvisTheme.of(context).secondaryText,
-                              size: 40,
+                        errorBuilder:
+                            (context, error, stackTrace) => Container(
+                              height: 200,
+                              width: 200,
+                              color:
+                                  JarvisTheme.of(context).secondaryBackground,
+                              child: Center(
+                                child: Icon(
+                                  Icons.error,
+                                  color: JarvisTheme.of(context).secondaryText,
+                                  size: 40,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
                           return Container(
@@ -1929,10 +1937,14 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                             width: 200,
                             child: Center(
                               child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                        (loadingProgress.expectedTotalBytes ?? 1)
-                                    : null,
+                                value:
+                                    loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress
+                                                .cumulativeBytesLoaded /
+                                            (loadingProgress
+                                                    .expectedTotalBytes ??
+                                                1)
+                                        : null,
                               ),
                             ),
                           );

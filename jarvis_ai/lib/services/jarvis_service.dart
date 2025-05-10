@@ -1,7 +1,5 @@
-// Updated JarvisService using apiService methods
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -21,14 +19,16 @@ part 'jarvis_service.g.dart';
 
 class MessageResponse {
   final String? message;
+  final String? conversationId;
   final num? remainingUsage;
 
-  MessageResponse({this.message, this.remainingUsage});
+  MessageResponse({this.message, this.remainingUsage, this.conversationId});
 
   factory MessageResponse.fromJson(Map<String, dynamic> json) {
     return MessageResponse(
       message: json['message'] as String?,
       remainingUsage: json['remainingUsage'] as num,
+      conversationId: json['conversationId'] as String?,
     );
   }
 }
@@ -195,41 +195,39 @@ abstract class _JarvisService with Store {
   Future<void> toggleFavorite(String id) async {
     try {
       UserModel? user = await getUser();
-      Prompt prompt = prompts.firstWhere((x) => x.id == id);
-      if (prompt.isFavorite != null) {
-        final response =
-            !prompt.isFavorite!
-                ? await http.post(
-                  Uri.parse('$baseUrl/api/v1/prompts/${id}/favorite'),
-                  headers: {
-                    'x-jarvis-guid': '',
-                    'Authorization': 'Bearer ${user?.accessToken}',
-                  },
-                  body: {},
-                )
-                : await http.delete(
-                  Uri.parse('$baseUrl/api/v1/prompts/${id}/favorite'),
-                  headers: {
-                    'x-jarvis-guid': '',
-                    'Authorization': 'Bearer ${user?.accessToken}',
-                  },
-                );
-        if (response.statusCode == 401) {
-          throw ApiException('Session expired', 401, {});
-        }
-        final index = prompts.indexWhere((prompt) => prompt.id == id);
-        if (index != -1) {
-          final oldPrompt = prompts[index];
-          print('Old prompt: $oldPrompt');
-          prompts[index] = oldPrompt.copyWith(
-            isFavorite: !(oldPrompt.isFavorite ?? false),
-          );
-        }
+
+      Prompt prompt = prompts.firstWhere(
+        (x) => x.id == id,
+        orElse: () => throw ApiException('Prompt not found', 404, {}),
+      );
+      bool currentFavorite = prompt.isFavorite ?? false;
+
+      final headers = {
+        'x-jarvis-guid': '',
+        'Authorization': 'Bearer ${user!.accessToken}',
+        'Accept': 'application/json, text/plain, */*', // Matching curl
+      };
+
+      final response =
+          currentFavorite
+              ? await _apiService.delete(
+                '/api/v1/prompts/${id}/favorite',
+                headers: headers,
+                body: {},
+              )
+              : await _apiService.post(
+                '/api/v1/prompts/${id}/favorite',
+                headers: headers,
+                body: {},
+              );
+      final index = prompts.indexWhere((p) => p.id == id);
+      if (index != -1) {
+        final oldPrompt = prompts[index];
+        prompts[index] = oldPrompt.copyWith(isFavorite: !currentFavorite);
       }
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {
-        // This will trigger the unauthorized handler in ApiService
-        rethrow;
+        rethrow; // Let ApiService handle unauthorized
       }
       print('Error toggling favorite: $e');
       rethrow;
@@ -663,6 +661,7 @@ abstract class _JarvisService with Store {
       return null;
     }
   }
+
   @action
   Future<List<String>?> suggestReplyIdea({
     required String action,
@@ -682,7 +681,7 @@ abstract class _JarvisService with Store {
           'subject': subject,
           'sender': sender,
           'receiver': receiver,
-          'language': language
+          'language': language,
         },
       };
       print('Request body: $requestBody');

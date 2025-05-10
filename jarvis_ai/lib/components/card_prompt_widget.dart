@@ -52,9 +52,9 @@ class _CardPromtWidgetState extends State<CardPromtWidget> {
   Future<void> _handleFavoriteToggle() async {
     try {
       await widget.jarvisService.toggleFavorite(widget.prompt.id);
-      if (widget.onFavoriteChanged != null) {
-        widget.onFavoriteChanged!(!widget.prompt.isFavorite!);
-      }
+      // if (widget.onFavoriteChanged != null) {
+      //   widget.onFavoriteChanged!(!widget.prompt.isFavorite!);
+      // }
     } catch (e) {
       ScaffoldMessenger.of(
         context,
