@@ -1664,7 +1664,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                                   mainAxisSize: MainAxisSize.max,
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.all(5.0),
+                                      padding: const EdgeInsets.all(3.0),
                                       decoration: BoxDecoration(
                                         shape: BoxShape.rectangle,
                                         color: Colors.grey,
@@ -1675,8 +1675,8 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                                           Icon(Icons.local_fire_department),
                                           if (currentToken == null)
                                             SizedBox(
-                                              width: 15,
-                                              height: 20,
+                                              width: 10,
+                                              height: 10,
                                               child: CircularProgressIndicator(
                                                 strokeWidth: 2,
                                               ),
@@ -1684,7 +1684,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                                           else if (currentToken!.unlimited)
                                             FaIcon(
                                               FontAwesomeIcons.infinity,
-                                              size: 15,
+                                              size: 12,
                                             )
                                           else
                                             Text(
@@ -1820,7 +1820,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                                                       JarvisTheme.of(
                                                         context,
                                                       ).secondaryText,
-                                                  size: 24.0,
+                                                  size: 20.0,
                                                 ),
                                                 onPressed: _pickFile,
                                               ),
@@ -1831,7 +1831,7 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                                                       JarvisTheme.of(
                                                         context,
                                                       ).secondaryText,
-                                                  size: 24.0,
+                                                  size: 20.0,
                                                 ),
                                                 onPressed: _pickImage,
                                               ),
@@ -1852,16 +1852,17 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                                         onFieldSubmitted: (_) => _sendMessage(),
                                       ),
                                     ),
-                                    SizedBox(width: 12.0),
+                                    SizedBox(width: 8.0),
                                     JarvisIconButton(
                                       borderRadius: 24.0,
-                                      buttonSize: 48.0,
-                                      fillColor:
-                                          JarvisTheme.of(context).secondary,
+                                      buttonSize: 35.0,
+                                      fillColor: Colors.transparent,
+                                          
                                       icon: Icon(
                                         Icons.send_rounded,
-                                        color: JarvisTheme.of(context).info,
-                                        size: 24.0,
+                                        color: JarvisTheme.of(context).secondary,
+                                        size: 22.0,
+
                                       ),
                                       onPressed:
                                           isLoading ? null : _sendMessage,
