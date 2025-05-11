@@ -182,9 +182,9 @@ class _HomePageState extends State<HomePage> {
         title: Row(
           children: [
         Image.asset(
-          'assets/app-logo.webp',
-          width: 28,
-          height: 28,
+          'assets/ai-logo.png',
+          width: 40,
+          height: 40,
         ),
         SizedBox(width: 8),
         Padding(
