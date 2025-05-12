@@ -279,19 +279,13 @@ class _EmailGeneratorPageState extends State<EmailGeneratorPage>
   Future<String> _generateEmailReply(String description) async {
     final response = await widget.apiStore.jarvisService.sendMessage(
       content: jsonEncode({
-        "mainIdea": description,
-        "action": "Reply to this email",
+        "action": description,
         "email": _replyEmailContentController.text,
         "metadata": {
           "context": [],
           "subject": _replySubjectController.text,
           "sender": "User",
           "receiver": _replyToController.text,
-          "style": {
-            "length": "long",
-            "formality": "neutral",
-            "tone": "friendly",
-          },
           "language": "vietnamese",
         },
       }),
@@ -304,7 +298,7 @@ class _EmailGeneratorPageState extends State<EmailGeneratorPage>
     final response = await widget.apiStore.jarvisService.sendMessage(
       content: jsonEncode({
         "mainIdea": description,
-        "action": "Response Email",
+        "action": _composeActionController.text,
         "metadata": {
           "context": [],
           "subject": _composeSubjectController.text,

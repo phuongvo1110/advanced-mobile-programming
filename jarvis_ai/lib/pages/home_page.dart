@@ -147,7 +147,6 @@ class _HomePageState extends State<HomePage> {
     if (_isInterstitialAdReady && _interstitialAd != null) {
       _interstitialAd!.show().then((_) async {
         print('Interstitial ad shown successfully');
-        // Navigate after the ad is shown or dismissed
         final result = await Navigator.pushNamed(context, route);
         if (result != null && result == true) {
           _loadAssistants(refresh: true);

@@ -874,7 +874,7 @@ class _KnowledgeBasePageState extends State<KnowledgeBasePage> {
                   onPressed: () {
                     _showCreateKnowledgeBaseDialog();
                   },
-                  text: 'Create New Assistant',
+                  text: 'Create New Knowledge Base',
                   options: FFButtonOptions(
                     width: double.infinity,
                     height: 50.0,
