@@ -45,7 +45,7 @@ abstract class _AuthService with Store {
       print('$response');
       currentUser = UserModel.fromJson(response);
       accessToken = currentUser?.accessToken;
-      tokenExpiryTime = DateTime.now().add(Duration(hours: 1));
+      tokenExpiryTime = DateTime.now().add(Duration(minutes: 5));
       print('Login successful! User ID: ${currentUser?.userId}');
       await _saveUserData();
       return true;
@@ -75,10 +75,10 @@ abstract class _AuthService with Store {
       currentUser = UserModel.fromJson(jsonDecode(userJson));
       accessToken = currentUser?.accessToken;
       tokenExpiryTime = DateTime.now().add(
-        Duration(hours: 1),
-      ); // Assuming token expiration
+        Duration(minutes: 5),
+      );
 
-      _startAutoRefresh(); // Start auto-refresh if token exists
+      _startAutoRefresh();
     }
   }
 
@@ -97,9 +97,9 @@ abstract class _AuthService with Store {
       final duration =
           tokenExpiryTime!.difference(DateTime.now()).inSeconds - 60;
       if (duration > 0) {
-        Future.delayed(Duration(seconds: duration), _refreshToken);
+        Future.delayed(Duration(seconds: duration), refreshToken);
       } else {
-        _refreshToken();
+        refreshToken();
       }
     }
   }
@@ -127,7 +127,7 @@ abstract class _AuthService with Store {
       print('Signup response: $response');
       currentUser = UserModel.fromJson(response);
       accessToken = currentUser?.accessToken;
-      tokenExpiryTime = DateTime.now().add(Duration(hours: 1));
+      tokenExpiryTime = DateTime.now().add(Duration(minutes: 5));
       await _saveUserData();
       return true;
     } on ApiException catch (e) {
@@ -174,7 +174,7 @@ abstract class _AuthService with Store {
   }
 
   @action
-  Future<bool> _refreshToken() async {
+  Future<bool> refreshToken() async {
     if (currentUser == null || currentUser!.refreshToken.isEmpty) {
       print('No refresh token available');
       return false;
@@ -198,9 +198,10 @@ abstract class _AuthService with Store {
         currentUser = UserModel(
           userId: currentUser!.userId,
           accessToken: response['access_token'],
-          refreshToken: response['refresh_token'] ?? currentUser!.refreshToken,
+          refreshToken: currentUser!.refreshToken,
         );
         print('Token refreshed successfully!');
+        await _saveUserData();
         return true;
       } else {
         print('Failed to refresh token.');

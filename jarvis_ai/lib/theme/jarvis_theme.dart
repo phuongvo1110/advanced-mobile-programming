@@ -16,13 +16,14 @@ abstract class JarvisTheme {
     return darkMode == null
         ? ThemeMode.system
         : darkMode
-            ? ThemeMode.dark
-            : ThemeMode.light;
+        ? ThemeMode.dark
+        : ThemeMode.light;
   }
 
-  static void saveThemeMode(ThemeMode mode) => mode == ThemeMode.system
-      ? _prefs?.remove(kThemeModeKey)
-      : _prefs?.setBool(kThemeModeKey, mode == ThemeMode.dark);
+  static void saveThemeMode(ThemeMode mode) =>
+      mode == ThemeMode.system
+          ? _prefs?.remove(kThemeModeKey)
+          : _prefs?.setBool(kThemeModeKey, mode == ThemeMode.dark);
 
   static JarvisTheme of(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
@@ -183,109 +184,109 @@ class ThemeTypography extends Typography {
 
   String get displayLargeFamily => 'Inter Tight';
   TextStyle get displayLarge => GoogleFonts.getFont(
-        'Inter Tight',
-        color: theme.primaryText,
-        fontWeight: FontWeight.w600,
-        fontSize: 64.0,
-      );
+    'Inter Tight',
+    color: theme.primaryText,
+    fontWeight: FontWeight.w600,
+    fontSize: 64.0,
+  );
   String get displayMediumFamily => 'Inter Tight';
   TextStyle get displayMedium => GoogleFonts.getFont(
-        'Inter Tight',
-        color: theme.primaryText,
-        fontWeight: FontWeight.w600,
-        fontSize: 44.0,
-      );
+    'Inter Tight',
+    color: theme.primaryText,
+    fontWeight: FontWeight.w600,
+    fontSize: 44.0,
+  );
   String get displaySmallFamily => 'Inter Tight';
   TextStyle get displaySmall => GoogleFonts.getFont(
-        'Inter Tight',
-        color: theme.primaryText,
-        fontWeight: FontWeight.w600,
-        fontSize: 36.0,
-      );
+    'Inter Tight',
+    color: theme.primaryText,
+    fontWeight: FontWeight.w600,
+    fontSize: 36.0,
+  );
   String get headlineLargeFamily => 'Inter Tight';
   TextStyle get headlineLarge => GoogleFonts.getFont(
-        'Inter Tight',
-        color: theme.primaryText,
-        fontWeight: FontWeight.w600,
-        fontSize: 32.0,
-      );
+    'Inter Tight',
+    color: theme.primaryText,
+    fontWeight: FontWeight.w600,
+    fontSize: 32.0,
+  );
   String get headlineMediumFamily => 'Inter Tight';
   TextStyle get headlineMedium => GoogleFonts.getFont(
-        'Inter Tight',
-        color: theme.primaryText,
-        fontWeight: FontWeight.w600,
-        fontSize: 28.0,
-      );
+    'Inter Tight',
+    color: theme.primaryText,
+    fontWeight: FontWeight.w600,
+    fontSize: 28.0,
+  );
   String get headlineSmallFamily => 'Inter Tight';
   TextStyle get headlineSmall => GoogleFonts.getFont(
-        'Inter Tight',
-        color: theme.primaryText,
-        fontWeight: FontWeight.w600,
-        fontSize: 24.0,
-      );
+    'Inter Tight',
+    color: theme.primaryText,
+    fontWeight: FontWeight.w600,
+    fontSize: 24.0,
+  );
   String get titleLargeFamily => 'Inter Tight';
   TextStyle get titleLarge => GoogleFonts.getFont(
-        'Inter Tight',
-        color: theme.primaryText,
-        fontWeight: FontWeight.w600,
-        fontSize: 20.0,
-      );
+    'Inter Tight',
+    color: theme.primaryText,
+    fontWeight: FontWeight.w600,
+    fontSize: 20.0,
+  );
   String get titleMediumFamily => 'Inter Tight';
   TextStyle get titleMedium => GoogleFonts.getFont(
-        'Inter Tight',
-        color: theme.primaryText,
-        fontWeight: FontWeight.w600,
-        fontSize: 18.0,
-      );
+    'Inter Tight',
+    color: theme.primaryText,
+    fontWeight: FontWeight.w600,
+    fontSize: 18.0,
+  );
   String get titleSmallFamily => 'Inter Tight';
   TextStyle get titleSmall => GoogleFonts.getFont(
-        'Inter Tight',
-        color: theme.primaryText,
-        fontWeight: FontWeight.w600,
-        fontSize: 16.0,
-      );
+    'Inter Tight',
+    color: theme.primaryText,
+    fontWeight: FontWeight.w600,
+    fontSize: 16.0,
+  );
   String get labelLargeFamily => 'Inter';
   TextStyle get labelLarge => GoogleFonts.getFont(
-        'Inter',
-        color: theme.secondaryText,
-        fontWeight: FontWeight.normal,
-        fontSize: 16.0,
-      );
+    'Inter',
+    color: theme.secondaryText,
+    fontWeight: FontWeight.normal,
+    fontSize: 16.0,
+  );
   String get labelMediumFamily => 'Inter';
   TextStyle get labelMedium => GoogleFonts.getFont(
-        'Inter',
-        color: theme.secondaryText,
-        fontWeight: FontWeight.normal,
-        fontSize: 14.0,
-      );
+    'Inter',
+    color: theme.secondaryText,
+    fontWeight: FontWeight.normal,
+    fontSize: 14.0,
+  );
   String get labelSmallFamily => 'Inter';
   TextStyle get labelSmall => GoogleFonts.getFont(
-        'Inter',
-        color: theme.secondaryText,
-        fontWeight: FontWeight.normal,
-        fontSize: 12.0,
-      );
+    'Inter',
+    color: theme.secondaryText,
+    fontWeight: FontWeight.normal,
+    fontSize: 12.0,
+  );
   String get bodyLargeFamily => 'Inter';
   TextStyle get bodyLarge => GoogleFonts.getFont(
-        'Inter',
-        color: theme.primaryText,
-        fontWeight: FontWeight.normal,
-        fontSize: 16.0,
-      );
+    'Inter',
+    color: theme.primaryText,
+    fontWeight: FontWeight.normal,
+    fontSize: 16.0,
+  );
   String get bodyMediumFamily => 'Inter';
   TextStyle get bodyMedium => GoogleFonts.getFont(
-        'Inter',
-        color: theme.primaryText,
-        fontWeight: FontWeight.normal,
-        fontSize: 14.0,
-      );
+    'Inter',
+    color: theme.primaryText,
+    fontWeight: FontWeight.normal,
+    fontSize: 14.0,
+  );
   String get bodySmallFamily => 'Inter';
   TextStyle get bodySmall => GoogleFonts.getFont(
-        'Inter',
-        color: theme.primaryText,
-        fontWeight: FontWeight.normal,
-        fontSize: 12.0,
-      );
+    'Inter',
+    color: theme.primaryText,
+    fontWeight: FontWeight.normal,
+    fontSize: 12.0,
+  );
 }
 
 class DarkModeTheme extends JarvisTheme {
@@ -326,28 +327,30 @@ extension TextStyleHelper on TextStyle {
     TextDecoration? decoration,
     double? lineHeight,
     List<Shadow>? shadows,
-  }) =>
-      useGoogleFonts
-          ? GoogleFonts.getFont(
-              fontFamily!,
-              color: color ?? this.color,
-              fontSize: fontSize ?? this.fontSize,
-              letterSpacing: letterSpacing ?? this.letterSpacing,
-              fontWeight: fontWeight ?? this.fontWeight,
-              fontStyle: fontStyle ?? this.fontStyle,
-              decoration: decoration,
-              height: lineHeight,
-              shadows: shadows,
-            )
-          : copyWith(
-              fontFamily: fontFamily,
-              color: color,
-              fontSize: fontSize,
-              letterSpacing: letterSpacing,
-              fontWeight: fontWeight,
-              fontStyle: fontStyle,
-              decoration: decoration,
-              height: lineHeight,
-              shadows: shadows,
-            );
+  }) {
+    final effectiveFontFamily = fontFamily ?? this.fontFamily ?? 'Inter';
+    return useGoogleFonts
+        ? GoogleFonts.getFont(
+          effectiveFontFamily,
+          color: color ?? this.color,
+          fontSize: fontSize ?? this.fontSize,
+          letterSpacing: letterSpacing ?? this.letterSpacing,
+          fontWeight: fontWeight ?? this.fontWeight,
+          fontStyle: fontStyle ?? this.fontStyle,
+          decoration: decoration,
+          height: lineHeight,
+          shadows: shadows,
+        )
+        : copyWith(
+          fontFamily: effectiveFontFamily,
+          color: color,
+          fontSize: fontSize,
+          letterSpacing: letterSpacing,
+          fontWeight: fontWeight,
+          fontStyle: fontStyle,
+          decoration: decoration,
+          height: lineHeight,
+          shadows: shadows,
+        );
+  }
 }

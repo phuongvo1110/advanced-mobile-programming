@@ -1,43 +1,142 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:jarvis_ai/components/card_prompt_widget.dart';
 import 'package:jarvis_ai/models/conversation.dart';
+import 'package:jarvis_ai/models/prompt.dart';
+import 'package:jarvis_ai/models/token.dart';
+import 'package:jarvis_ai/pages/prompt_create._page.dart';
 import 'package:jarvis_ai/stores/api_store.dart';
+import 'package:jarvis_ai/theme/flutter_flow_choice_chips.dart';
+import 'package:jarvis_ai/theme/flutter_flow_model.dart';
+import 'package:jarvis_ai/theme/flutter_flow_theme.dart';
+import 'package:jarvis_ai/theme/form_field_controller.dart';
 import 'package:jarvis_ai/theme/jarvis_icon_button.dart';
 import 'package:jarvis_ai/theme/jarvis_theme.dart';
 import 'package:mobx/mobx.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-class IdOption {
-  final Id value;
+class AssistantOption {
+  final String value;
   final String label;
-  const IdOption({required this.value, required this.label});
+  final bool isCustom;
+  final String model;
+
+  const AssistantOption({
+    required this.value,
+    required this.label,
+    required this.isCustom,
+    required this.model,
+  });
 }
 
-const List<IdOption> idOptions = [
-  IdOption(value: Id.CLAUDE_3_HAIKU_20240307, label: 'Claude 3 Haiku'),
-  IdOption(value: Id.CLAUDE_3_SONNET_20240229, label: 'Claude 3 Sonnet'),
-  IdOption(value: Id.GEMINI_15_FLASH_LATEST, label: 'Gemini 1.5 Flash'),
-  IdOption(value: Id.GEMINI_15_PRO_LATEST, label: 'Gemini 1.5 Pro'),
-  IdOption(value: Id.GPT_4_O, label: 'GPT-4o'),
-  IdOption(value: Id.GPT_4_O_MINI, label: 'GPT-4o Mini'),
+const List<AssistantOption> predefinedOptions = [
+  AssistantOption(
+    value: 'claude-3-haiku-20240307',
+    label: 'Claude 3 Haiku',
+    isCustom: false,
+    model: 'dify',
+  ),
+  AssistantOption(
+    value: 'claude-3-5-sonnet-20240620',
+    label: 'Claude 3 Sonnet',
+    isCustom: false,
+    model: 'dify',
+  ),
+  AssistantOption(
+    value: 'gemini-1.5-flash-latest',
+    label: 'Gemini 1.5 Flash',
+    isCustom: false,
+    model: 'dify',
+  ),
+  AssistantOption(
+    value: 'gemini-1.5-pro-latest',
+    label: 'Gemini 1.5 Pro',
+    isCustom: false,
+    model: 'dify',
+  ),
+  AssistantOption(
+    value: 'gpt-4o',
+    label: 'GPT-4o',
+    isCustom: false,
+    model: 'dify',
+  ),
+  AssistantOption(
+    value: 'gpt-4o-mini',
+    label: 'GPT-4o Mini',
+    isCustom: false,
+    model: 'dify',
+  ),
 ];
 
-class AIChatMessageModel {
-  ///  State fields for stateful widgets in this page.
-
-  // State field(s) for TextField widget.
+class AIChatMessageModel extends FlutterFlowModel<AIMessagePage> {
   FocusNode? textFieldFocusNode;
   TextEditingController? textController;
   String? Function(String?)? textControllerValidator;
+  ScrollController? promptScrollController;
+  OverlayEntry? promptOverlayEntry;
+  ScrollController? promptDrawerScrollController;
+  bool isPromptDropdownVisible = false;
+  ScrollController? conversationDrawerScrollController;
+  FocusNode? promptSearchFieldFocusNode;
+  TextEditingController? promptSearchController;
+  TextEditingController? conversationSearchController;
+  FocusNode? conversationSearchFieldFocusNode;
+  FormFieldController<List<String>>? choiceChipsController;
+  String? get choiceChipsValue => choiceChipsController?.value?.firstOrNull;
+  set choiceChipsValue(String? val) =>
+      choiceChipsController?.value = val != null ? [val] : [];
+
+  @observable
+  ObservableList<PlatformFile> selectedFiles = ObservableList<PlatformFile>();
+  @observable
+  String? fileError;
+  @action
+  void addFiles(List<PlatformFile> files) {
+    selectedFiles.addAll(files);
+  }
+
+  @action
+  void removeFile(PlatformFile file) {
+    selectedFiles.remove(file);
+  }
+
+  @override
   void dispose() {
     textFieldFocusNode?.dispose();
     textController?.dispose();
+    conversationSearchController?.dispose();
+    conversationSearchFieldFocusNode?.dispose();
+    conversationDrawerScrollController?.dispose();
+    promptOverlayEntry?.remove();
+    promptOverlayEntry = null;
+    promptDrawerScrollController?.dispose();
+    promptSearchFieldFocusNode?.dispose();
+    promptSearchController?.dispose();
+    choiceChipsController?.dispose();
+  }
+
+  @override
+  void initState(BuildContext context) {
+    textFieldFocusNode = FocusNode();
+    textController = TextEditingController();
+    conversationSearchController = TextEditingController();
+    conversationSearchFieldFocusNode = FocusNode();
+    conversationDrawerScrollController = ScrollController();
+    promptScrollController = ScrollController();
+    promptDrawerScrollController = ScrollController();
+    promptSearchController = TextEditingController();
+    promptSearchFieldFocusNode = FocusNode();
+    choiceChipsController = FormFieldController<List<String>>(['All']);
   }
 }
 
 class AIMessagePage extends StatefulWidget {
-  const AIMessagePage({super.key, required this.apiStore});
+  const AIMessagePage({super.key, required this.apiStore, this.assistantId});
   final ApiStore apiStore;
+  final String? assistantId;
+
   @override
   State<AIMessagePage> createState() => _AIMessagePageWidgetState();
 }
@@ -48,47 +147,559 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
   List<Map<String, dynamic>> conversationHistory = [];
   ObservableList<Message> messages = ObservableList<Message>();
   bool isLoading = false;
-  IdOption selectedBot = idOptions.firstWhere(
-    (option) => option.value == Id.GPT_4_O_MINI,
-  );
-
-  // Assistant details - these could also be passed as parameters
-  Assistant get currentAssistant => Assistant(
-    id: selectedBot.value,
-    model: Model.DIFY,
-    name: selectedBot.label,
-  );
+  AssistantOption? selectedAssistantOption;
+  String? selectedConversationId;
+  List<AssistantOption> assistantOptions = [];
+  Assistant? currentAssistant;
+  Token? currentToken;
+  GlobalKey textFieldKey = GlobalKey();
+  GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final ImagePicker _picker = ImagePicker();
   @override
   void initState() {
     super.initState();
     _model = AIChatMessageModel();
-
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
+    _model.conversationSearchController ??= TextEditingController();
+    _model.conversationSearchFieldFocusNode ??= FocusNode();
+    _model.textController!.addListener(_handleTextChange);
+    loadUsage();
+    _loadAssistants();
+    _loadPrompts(refresh: true);
+    _model.promptScrollController?.addListener(() {
+      if (_model.promptScrollController!.position.pixels >=
+          _model.promptScrollController!.position.maxScrollExtent - 50) {
+        if (widget.apiStore.jarvisService.hasMorePrompts &&
+            !widget.apiStore.jarvisService.isLoading) {
+          widget.apiStore.jarvisService.loadMorePrompts();
+        }
+      }
+    });
+    _model.promptDrawerScrollController?.addListener(() {
+      if (_model.promptDrawerScrollController!.position.pixels >=
+          _model.promptDrawerScrollController!.position.maxScrollExtent - 50) {
+        if (widget.apiStore.jarvisService.hasMorePrompts &&
+            !widget.apiStore.jarvisService.isLoading) {
+          widget.apiStore.jarvisService.loadMorePrompts();
+        }
+      }
+    });
   }
 
-  Future<void> _sendMessage() async {
-    final text = _model.textController?.text.trim();
-    if (text == null || text.isEmpty) return;
+  Future<void> _pickImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      final platformFile = PlatformFile(
+        name: image.name,
+        path: image.path,
+        size: await image.length(),
+        bytes: await image.readAsBytes(),
+      );
+      setState(() {
+        _model.addFiles([platformFile]);
+      });
+    }
+  }
+
+  Future<void> _loadConversations({bool refresh = false}) async {
+    try {
+      if (currentAssistant == null) return;
+      await widget.apiStore.jarvisService.getConversations(
+        refresh: refresh,
+        cursor: _model.conversationSearchController?.text ?? '',
+        assistanId: currentAssistant?.id as String,
+        assistantModel: currentAssistant?.model as String,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load conversations: ${e.toString()}'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _pickFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: [
+          'docx',
+          'pdf',
+          '.c',
+          '.cpp',
+          '.html',
+          '.java',
+          '.json',
+          '.md',
+          '.php',
+          '.pptx',
+          '.py',
+          '.rb',
+          '.tex',
+          '.txt',
+        ],
+        allowMultiple: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        final files = result.files;
+        files.forEach(
+          (file) => print(
+            'Picked file: name=${file.name}, path=${file.path}, bytes=${file.bytes?.length}, size=${file.size}',
+          ),
+        );
+        setState(() {
+          _model.addFiles(files);
+        });
+      } else {
+        print('No file picked');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to pick file: $e')));
+    }
+  }
+
+  void _removeFile(PlatformFile file) {
+    setState(() {
+      _model.removeFile(file);
+    });
+  }
+
+  Future<Map<String, dynamic>?> _uploadFile(PlatformFile file) async {
+    try {
+      // Step 1: Get signed URL for upload
+      final uploadResponse = await widget.apiStore.jarvisService
+          .requestSignedUrl(
+            filename: file.name,
+            mimetype: _getMimeType(file.extension ?? ''),
+          );
+
+      print('Signed URL Response: $uploadResponse');
+
+      if (uploadResponse == null ||
+          uploadResponse['url'] == null ||
+          uploadResponse['path'] == null) {
+        throw Exception(
+          'Failed to get signed URL or path for upload: Response is invalid',
+        );
+      }
+
+      final signedUrl = uploadResponse['url'] as String;
+      final uploadedFilename = uploadResponse['path'] as String;
+
+      if (signedUrl.isEmpty || uploadedFilename.isEmpty) {
+        throw Exception('Signed URL or uploaded filename is empty');
+      }
+
+      // Step 2: Upload the file to the signed URL
+      final uploadResult = await widget.apiStore.jarvisService
+          .uploadFileToSignedUrl(
+            signedUrl: signedUrl,
+            file: file,
+            mimetype: _getMimeType(file.extension ?? ''),
+          );
+
+      if (!uploadResult) {
+        throw Exception('Failed to upload file to storage');
+      }
+
+      // Step 3: Notify success
+      final successResponse = await widget.apiStore.jarvisService
+          .notifyUploadSuccess(
+            filename: uploadedFilename,
+            mimetype: _getMimeType(file.extension ?? ''),
+          );
+
+      print('Upload Success Response: $successResponse');
+
+      if (successResponse == null || successResponse['url'] == null) {
+        throw Exception('Failed to notify upload success: Response is invalid');
+      }
+
+      return successResponse;
+    } catch (e) {
+      print('File upload failed for ${file.name}: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload file ${file.name}: $e')),
+      );
+      return null;
+    }
+  }
+
+  String _getMimeType(String extension) {
+    switch (extension.toLowerCase()) {
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'pdf':
+        return 'application/pdf';
+      case 'txt':
+        return 'text/plain';
+      case 'md':
+        return 'text/markdown';
+      case 'json':
+        return 'application/json';
+      case 'html':
+        return 'text/html';
+      case 'java':
+      case 'c':
+      case 'cpp':
+      case 'py':
+      case 'rb':
+      case 'php':
+        return 'text/plain';
+      case 'pptx':
+        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      case 'tex':
+        return 'application/x-tex';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      default:
+        return 'application/octet-stream';
+    }
+  }
+
+  void _handleTextChange() {
+    final text = _model.textController!.text;
+    if (text.startsWith('/')) {
+      if (!_model.isPromptDropdownVisible) {
+        _showPromptDropdown();
+      }
+    } else {
+      if (_model.isPromptDropdownVisible) {
+        _hidePromptDropdown();
+      }
+    }
+  }
+
+  void _hidePromptDropdown() {
+    _model.promptOverlayEntry?.remove();
+    _model.promptOverlayEntry = null;
+    setState(() {
+      _model.isPromptDropdownVisible = false;
+    });
+  }
+
+  void _showPromptDropdown() {
+    if (_model.promptOverlayEntry != null) return;
+
+    final RenderBox? renderBox =
+        textFieldKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    _model.promptOverlayEntry = OverlayEntry(
+      builder:
+          (context) => Positioned(
+            left: position.dx,
+            top: position.dy - 250,
+            width: size.width,
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                height: 250,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300, width: 1),
+                ),
+                child: Observer(
+                  builder: (context) {
+                    final jarvisService = widget.apiStore.jarvisService;
+                    return Column(
+                      children: [
+                        Expanded(
+                          child: ListView.builder(
+                            controller: _model.promptScrollController,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            itemCount: jarvisService.prompts.length + 1,
+                            itemBuilder: (context, index) {
+                              if (index < jarvisService.prompts.length) {
+                                final prompt = jarvisService.prompts[index];
+                                return ListTile(
+                                  title: Text(
+                                    prompt.title ?? 'Untitled',
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  onTap: () {
+                                    _hidePromptDropdown();
+                                    _showPromptDialog(prompt, context);
+                                  },
+                                );
+                              } else if (jarvisService.isLoading) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(8.0),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              } else {
+                                return const SizedBox.shrink();
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+    );
+
+    Overlay.of(context).insert(_model.promptOverlayEntry!);
+    setState(() {
+      _model.isPromptDropdownVisible = true;
+    });
+  }
+
+  Future<void> loadUsage() async {
+    try {
+      final response = await widget.apiStore.jarvisService.getUsage();
+      setState(() {
+        currentToken = response;
+      });
+    } catch (e) {
+      print('Error loading usage: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load usage')));
+      setState(() {
+        currentToken = null;
+      });
+    }
+  }
+
+  void _showPromptDialog(Prompt prompt, BuildContext dialogContext) {
+    final TextEditingController userInputController = TextEditingController();
+    final theme = JarvisTheme.of(dialogContext);
+    String selectedLanguage = 'Auto';
+    showDialog(
+      context: dialogContext,
+      builder:
+          (context) => Observer(
+            builder: (context) {
+              final updatedPrompt = widget.apiStore.jarvisService.prompts
+                  .firstWhere((p) => p.id == prompt.id, orElse: () => prompt);
+              return AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                title: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      updatedPrompt.title ?? 'Untitled Prompt',
+                      style: theme.titleMedium,
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            updatedPrompt.isFavorite ?? false
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            color:
+                                updatedPrompt.isFavorite ?? false
+                                    ? Colors.red
+                                    : Colors.white,
+                            size: 24.0,
+                          ),
+                          onPressed: () {
+                            _handleFavoriteToggle(updatedPrompt.id);
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 24),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Prompt',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        updatedPrompt.content ?? '',
+                        style: theme.bodyMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Output Language',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: 'Auto',
+                        items:
+                            ['Auto', 'English', 'Spanish', 'French']
+                                .map(
+                                  (lang) => DropdownMenuItem(
+                                    value: lang,
+                                    child: Text(lang),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            selectedLanguage = value!;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Text',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: userInputController,
+                        maxLines: 5,
+                        decoration: InputDecoration(
+                          hintText: 'Enter your text here...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.all(12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      _sendMessageWithPrompt(
+                        promptContent: updatedPrompt.content ?? '',
+                        userInput: userInputController.text,
+                        language: selectedLanguage,
+                      );
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text('Send'),
+                  ),
+                ],
+              );
+            },
+          ),
+    );
+  }
+
+  Future<void> _sendMessageWithPrompt({
+    required String promptContent,
+    required String userInput,
+    required String language,
+  }) async {
+    String modifiedPrompt = promptContent;
+    final RegExp placeholderPattern = RegExp(r'\[([^\]]*)\]');
+
+    if (userInput.isNotEmpty) {
+      if (placeholderPattern.hasMatch(promptContent)) {
+        modifiedPrompt = promptContent.replaceAllMapped(
+          placeholderPattern,
+          (Match match) => userInput,
+        );
+        if (language != 'Auto') {
+          modifiedPrompt = '$modifiedPrompt\n Response in language: $language';
+        }
+      } else {
+        if (language != 'Auto') {
+          modifiedPrompt =
+              '$modifiedPrompt\n User Input: $userInput \n Response in language: $language';
+        } else {
+          modifiedPrompt = '$modifiedPrompt\n User Input: $userInput';
+        }
+      }
+    }
+    final message = modifiedPrompt;
     setState(() {
       isLoading = true;
       messages.add(
-        Message(assistant: currentAssistant, content: text, role: 'user'),
+        Message(assistant: currentAssistant!, content: message, role: 'user'),
       );
       _model.textController?.clear();
     });
-
-    _scrollToBottom();
     try {
       final response = await widget.apiStore.jarvisService.sendMessage(
-        content: text,
-        assistant: currentAssistant,
+        content: message,
+        assistant: currentAssistant!,
         conversationHistory: conversationHistory,
+        conversationId: selectedConversationId,
       );
+      if (response == null || response?.message == null) {
+        setState(() {
+          messages.add(
+            Message(
+              assistant: currentAssistant!,
+              content:
+                  "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
+              role: 'model',
+            ),
+          );
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send message: Server error')),
+        );
+        return;
+      }
       setState(() {
         final modelResponse = Message(
-          assistant: currentAssistant,
-          content: response ?? '',
+          assistant: currentAssistant!,
+          content:
+              response.message ??
+              "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
           role: 'model',
         );
         messages.add(modelResponse);
@@ -96,21 +707,340 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
           messages[messages.length - 2].toJson(),
           modelResponse.toJson(),
         ]);
+        if (currentToken != null && response.remainingUsage != null) {
+          currentToken = currentToken!.copyWith(
+            availableTokens: response.remainingUsage,
+          );
+        }
       });
     } catch (e) {
       setState(() {
         messages.add(
           Message(
-            assistant: currentAssistant,
+            assistant: currentAssistant!,
             content: 'Sorry, I encountered an error. Please try again.',
             role: 'model',
           ),
         );
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send message: ${e.toString()}')),
+      );
     } finally {
       setState(() => isLoading = false);
       _scrollToBottom();
     }
+  }
+
+  Future<void> _handleFavoriteToggle(String promptId) async {
+    try {
+      await widget.apiStore.jarvisService.toggleFavorite(promptId);
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to toggle favorite: $e')));
+    }
+  }
+
+  Future<void> _loadPrompts({bool refresh = false}) async {
+    try {
+      await widget.apiStore.jarvisService.getPrompts(
+        refresh: refresh,
+        search: _model.promptSearchController?.text ?? '',
+        isPublic:
+            _model.choiceChipsValue == 'Public'
+                ? true
+                : _model.choiceChipsValue == 'Private'
+                ? false
+                : null,
+        isFavorite: _model.choiceChipsValue == 'Favorites' ? true : null,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load prompts: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _loadAssistants() async {
+    setState(() => isLoading = true);
+    try {
+      await widget.apiStore.kbService.getAssistants();
+      setState(() {
+        assistantOptions = [
+          ...predefinedOptions,
+          ...widget.apiStore.kbService.assistants.map(
+            (assistant) => AssistantOption(
+              value: assistant.id,
+              label: assistant.assistantName ?? 'Custom Assistant',
+              isCustom: true,
+              model: 'knowledge-base',
+            ),
+          ),
+        ];
+        if (widget.assistantId != null) {
+          _loadAssistantAndHistory();
+        } else {
+          selectedAssistantOption = assistantOptions.firstWhere(
+            (option) => option.value == 'gpt-4o-mini',
+            orElse: () => assistantOptions.first,
+          );
+          currentAssistant = Assistant(
+            id: selectedAssistantOption!.value,
+            model: selectedAssistantOption!.model,
+            name: selectedAssistantOption!.label,
+          );
+          _loadConversations(refresh: true);
+        }
+      });
+    } catch (e) {
+      print('Error loading assistants: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load assistants')));
+      setState(() {
+        assistantOptions = predefinedOptions;
+        selectedAssistantOption = assistantOptions.firstWhere(
+          (option) => option.value == 'gpt-4o-mini',
+          orElse: () => assistantOptions.first,
+        );
+        currentAssistant = Assistant(
+          id: selectedAssistantOption!.value,
+          model: selectedAssistantOption!.model,
+          name: selectedAssistantOption!.label,
+        );
+        // _loadConversationHistory();
+      });
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _loadAssistantAndHistory() async {
+    if (widget.assistantId == null) return;
+
+    setState(() => isLoading = true);
+    try {
+      final assistantDetail = await widget.apiStore.kbService.getAssistantById(
+        id: widget.assistantId!,
+      );
+      if (assistantDetail != null) {
+        setState(() {
+          currentAssistant = Assistant(
+            id: assistantDetail.id,
+            model: 'knowledge-base',
+            name: assistantDetail.assistantName ?? 'Custom Assistant',
+          );
+          selectedAssistantOption = assistantOptions.firstWhere(
+            (option) => option.value == assistantDetail.id,
+            orElse:
+                () => AssistantOption(
+                  value: assistantDetail.id,
+                  label: assistantDetail.assistantName ?? 'Custom Assistant',
+                  isCustom: true,
+                  model: 'knowledge-base',
+                ),
+          );
+        });
+        // await _loadConversationHistory();
+      }
+    } catch (e) {
+      print('Error loading assistant: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load assistant')));
+      setState(() {
+        selectedAssistantOption = assistantOptions.firstWhere(
+          (option) => option.value == 'gpt-4o-mini',
+          orElse: () => assistantOptions.first,
+        );
+        currentAssistant = Assistant(
+          id: selectedAssistantOption!.value,
+          model: selectedAssistantOption!.model,
+          name: selectedAssistantOption!.label,
+        );
+        // _loadConversationHistory();
+      });
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _loadConversationHistory(String conversationId) async {
+    if (currentAssistant == null) return;
+
+    setState(() => isLoading = true);
+    try {
+      final history = await widget.apiStore.jarvisService
+          .getConversationHistory(
+            conversationId: conversationId,
+            assistantModel: currentAssistant!.model,
+            assistantId: currentAssistant!.id as String,
+          );
+      setState(() {
+        messages.clear();
+        conversationHistory.clear();
+        if (history != null && history.isNotEmpty) {
+          for (var item in history) {
+            if (item.query != null) {
+              messages.add(
+                Message(
+                  assistant: currentAssistant!,
+                  content: item.query!,
+                  role: 'user',
+                  // createdAt: item.createdAt,
+                ),
+              );
+            }
+            if (item.answer != null) {
+              messages.add(
+                Message(
+                  assistant: currentAssistant!,
+                  content: item.answer!,
+                  role: 'model',
+                  // createdAt: item.createdAt,
+                ),
+              );
+            }
+          }
+          conversationHistory =
+              messages.map((message) => message.toJson()).toList();
+        }
+      });
+    } catch (e) {
+      print('Error loading conversation history: $e');
+      setState(() {
+        messages.clear();
+        conversationHistory.clear();
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Starting a new conversation')));
+    } finally {
+      setState(() => isLoading = false);
+      _scrollToBottom();
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _model.textController?.text.trim();
+    if (text == null || text.isEmpty || currentAssistant == null) return;
+
+    setState(() {
+      isLoading = true;
+      messages.add(
+        Message(assistant: currentAssistant!, content: text, role: 'user'),
+      );
+      _model.textController?.clear();
+    });
+
+    // Handle file uploads if any
+    List<String> fileUrls = [];
+    if (_model.selectedFiles.isNotEmpty) {
+      for (var file in _model.selectedFiles) {
+        final uploadResult = await _uploadFile(file);
+        if (uploadResult != null && uploadResult['url'] != null) {
+          fileUrls.add(uploadResult['url']);
+          messages.add(
+            Message(
+              assistant: currentAssistant!,
+              content: 'FILE:${file.name}:${uploadResult['url']}',
+              role: 'user',
+            ),
+          );
+        } else {
+          setState(() {
+            isLoading = false;
+            messages.add(
+              Message(
+                assistant: currentAssistant!,
+                content: 'Failed to upload file: ${file.name}',
+                role: 'user',
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
+        }
+      }
+      _model.selectedFiles.clear();
+    }
+
+    _scrollToBottom();
+    try {
+      final response = await widget.apiStore.jarvisService.sendMessage(
+        content: text,
+        assistant: currentAssistant!,
+        conversationHistory: conversationHistory,
+        files: fileUrls,
+        conversationId: selectedConversationId,
+      );
+      if (selectedConversationId == null && response?.conversationId != null) {
+        setState(() {
+          selectedConversationId = response?.conversationId;
+        });
+      }
+      if (response == null || response?.message == null) {
+        setState(() {
+          messages.add(
+            Message(
+              assistant: currentAssistant!,
+              content:
+                  "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
+              role: 'model',
+            ),
+          );
+        });
+        return;
+      }
+      setState(() {
+        final modelResponse = Message(
+          assistant: currentAssistant!,
+          content:
+              response.message ??
+              "Sorry, our servers can't handle your message right now. Please try again later. Thanks! 😊",
+          role: 'model',
+        );
+        messages.add(modelResponse);
+        conversationHistory.addAll([
+          messages[messages.length -
+                  (fileUrls.isNotEmpty ? 2 + fileUrls.length : 2)]
+              .toJson(),
+          modelResponse.toJson(),
+        ]);
+        if (currentToken != null && response.remainingUsage != null) {
+          currentToken = currentToken!.copyWith(
+            availableTokens: response.remainingUsage,
+          );
+        }
+      });
+    } catch (e) {
+      setState(() {
+        messages.add(
+          Message(
+            assistant: currentAssistant!,
+            content: 'Sorry, I encountered an error. Please try again.',
+            role: 'model',
+          ),
+        );
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send message: ${e.toString()}')),
+      );
+    } finally {
+      setState(() => isLoading = false);
+      _scrollToBottom();
+    }
+  }
+
+  void _selectConversation(String conversationId) {
+    if (currentAssistant == null) return;
+
+    setState(() {
+      selectedConversationId = conversationId;
+    });
+    _loadConversationHistory(conversationId);
+    Navigator.pop(context);
   }
 
   void _scrollToBottom() {
@@ -128,14 +1058,259 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
   @override
   void dispose() {
     _model.dispose();
-
+    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = JarvisTheme.of(context);
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: JarvisTheme.of(context).primaryBackground,
+      drawer: Drawer(
+        width: 400,
+        backgroundColor: theme.primaryBackground,
+        child: Column(
+          children: [
+            AppBar(
+              backgroundColor: theme.secondaryBackground,
+              automaticallyImplyLeading: false,
+              title: Text('Prompt Library', style: theme.titleMedium),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () {
+                    Navigator.pop(context); // Close the drawer
+                  },
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: TextFormField(
+                controller: _model.promptSearchController,
+                focusNode: _model.promptSearchFieldFocusNode,
+                onChanged: (value) {
+                  _loadPrompts(refresh: true);
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search prompts...',
+                  hintStyle: theme.labelMedium,
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: theme.alternate),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: theme.alternate),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: theme.primary),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: FlutterFlowChoiceChips(
+                options: const [
+                  ChipData('All'),
+                  ChipData('Public'),
+                  ChipData('Private'),
+                  ChipData('Favorites'),
+                ],
+                onChanged: (val) {
+                  setState(() {
+                    _model.choiceChipsValue = val?.firstOrNull;
+                  });
+                  _loadPrompts(refresh: true);
+                },
+                selectedChipStyle: ChipStyle(
+                  backgroundColor: theme.secondary,
+                  textStyle: theme.bodyMedium.override(
+                    fontFamily: 'Inter',
+                    color: theme.info,
+                  ),
+                  iconColor: theme.info,
+                  iconSize: 16,
+                  labelPadding: const EdgeInsets.symmetric(
+                    horizontal: 15,
+                    vertical: 5,
+                  ),
+                  elevation: 0,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                unselectedChipStyle: ChipStyle(
+                  backgroundColor: theme.secondaryBackground,
+                  textStyle: theme.bodyMedium.override(
+                    fontFamily: 'Inter',
+                    color: theme.secondaryText,
+                  ),
+                  iconColor: theme.secondaryText,
+                  iconSize: 16,
+                  labelPadding: const EdgeInsets.symmetric(
+                    horizontal: 15,
+                    vertical: 5,
+                  ),
+                  elevation: 0,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                chipSpacing: 18,
+                rowSpacing: 8,
+                multiselect: false,
+                alignment: WrapAlignment.center,
+                controller:
+                    _model.choiceChipsController ??=
+                        FormFieldController<List<String>>([]),
+              ),
+            ),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => _loadPrompts(refresh: true),
+                child: Observer(
+                  builder: (context) {
+                    final prompts =
+                        widget.apiStore.jarvisService.prompts.toList();
+                    if (widget.apiStore.jarvisService.isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (prompts.isEmpty &&
+                        !widget.apiStore.jarvisService.isLoading) {
+                      return Center(
+                        child: Text(
+                          'No prompts available',
+                          style: JarvisTheme.of(context).bodyMedium,
+                        ),
+                      );
+                    }
+                    return Builder(
+                      builder: (dialogContext) {
+                        return ListView.builder(
+                          controller: _model.promptDrawerScrollController,
+                          itemCount:
+                              widget.apiStore.jarvisService.prompts.length +
+                              (widget.apiStore.jarvisService.hasMorePrompts
+                                  ? 1
+                                  : 0),
+                          itemBuilder: (context, index) {
+                            if (index >=
+                                widget.apiStore.jarvisService.prompts.length) {
+                              return widget.apiStore.jarvisService.isLoading
+                                  ? const Center(
+                                    child: CircularProgressIndicator(),
+                                  )
+                                  : const SizedBox.shrink();
+                            }
+
+                            Prompt prompt =
+                                widget.apiStore.jarvisService.prompts[index];
+                            return CardPromtWidget(
+                              prompt: prompt,
+                              onFavoriteChanged: (isFavorite) {
+                                _handleFavoriteToggle(prompt.id);
+                              },
+                              jarvisService: widget.apiStore.jarvisService,
+                              onEditPressed: () async {
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) {
+                                      return PromptCreatingPage(
+                                        apiStore: widget.apiStore,
+                                        existingPrompt: prompt,
+                                      );
+                                    },
+                                  ),
+                                );
+                                if (result == true) {
+                                  await _loadPrompts(refresh: true);
+                                }
+                              },
+                              onTap: () {
+                                print('Prompt tapped: ${prompt.title}');
+                                Navigator.pop(context);
+                                _showPromptDialog(prompt, dialogContext);
+                              },
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+            Align(
+              alignment: AlignmentDirectional(0.0, 1.0),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0x00FFFFFF),
+                      JarvisTheme.of(context).primaryBackground,
+                    ],
+                    stops: [0.0, 1.0],
+                    begin: AlignmentDirectional(-1.0, 0.0),
+                    end: AlignmentDirectional(1.0, 0),
+                  ),
+                ),
+                child: Padding(
+                  padding: EdgeInsetsDirectional.fromSTEB(
+                    16.0,
+                    0.0,
+                    16.0,
+                    16.0,
+                  ),
+                  child: FFButtonWidget(
+                    onPressed: () async {
+                      final result = await Navigator.pushNamed(
+                        context,
+                        '/create-prompt',
+                      );
+                      if (result == true) {
+                        await _loadPrompts(refresh: true);
+                      }
+                    },
+                    text: 'Create New Prompt',
+                    options: FFButtonOptions(
+                      width: double.infinity,
+                      height: 50.0,
+                      padding: EdgeInsetsDirectional.fromSTEB(
+                        16.0,
+                        0.0,
+                        16.0,
+                        0.0,
+                      ),
+                      iconPadding: EdgeInsetsDirectional.fromSTEB(
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                      ),
+                      color: JarvisTheme.of(context).secondary,
+                      textStyle: JarvisTheme.of(context).titleSmall.override(
+                        fontFamily: 'Inter Tight',
+                        color: JarvisTheme.of(context).info,
+                        letterSpacing: 0.0,
+                      ),
+                      elevation: 0.0,
+                      borderSide: BorderSide(
+                        color: Colors.transparent,
+                        width: 1.0,
+                      ),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
       appBar: AppBar(
         backgroundColor: JarvisTheme.of(context).secondary,
         automaticallyImplyLeading: false,
@@ -149,11 +1324,11 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
             size: 24.0,
           ),
           onPressed: () {
-            Navigator.pushNamed(context, '/');
+            Navigator.pop(context, true);
           },
         ),
         title: Text(
-          'Jarvis.AI',
+          'Chat',
           style: JarvisTheme.of(context).displaySmall.override(
             fontFamily: 'Poppins',
             color: JarvisTheme.of(context).primaryText,
@@ -169,8 +1344,8 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
           ),
         ),
         actions: [
-          DropdownButton(
-            value: selectedBot,
+          DropdownButton<AssistantOption>(
+            value: selectedAssistantOption,
             icon: Icon(
               Icons.arrow_drop_down,
               color: JarvisTheme.of(context).info,
@@ -184,8 +1359,10 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
             underline: Container(height: 0),
             dropdownColor: JarvisTheme.of(context).secondaryBackground,
             items:
-                idOptions.map<DropdownMenuItem<IdOption>>((IdOption option) {
-                  return DropdownMenuItem<IdOption>(
+                assistantOptions.map<DropdownMenuItem<AssistantOption>>((
+                  AssistantOption option,
+                ) {
+                  return DropdownMenuItem<AssistantOption>(
                     value: option,
                     child: Text(
                       option.label,
@@ -197,34 +1374,151 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                     ),
                   );
                 }).toList(),
-            onChanged: (IdOption? newValue) {
+            onChanged: (AssistantOption? newValue) {
               if (newValue != null) {
                 setState(() {
-                  selectedBot = newValue;
+                  selectedAssistantOption = newValue;
+                  currentAssistant = Assistant(
+                    id: newValue.value,
+                    model: newValue.model,
+                    name: newValue.label,
+                  );
                   messages.clear();
                   conversationHistory.clear();
+                  _loadConversations(refresh: true);
                 });
               }
             },
           ),
-          // Padding(
-          //   padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 12.0, 0.0),
-          //   child: JarvisIconButton(
-          //     borderColor: Colors.transparent,
-          //     borderRadius: 30.0,
-          //     borderWidth: 1.0,
-          //     buttonSize: 60.0,
-          //     icon: FaIcon(
-          //       FontAwesomeIcons.solidCircleUser,
-          //       color: JarvisTheme.of(context).primaryText,
-          //       size: 30.0,
-          //     ),
-          //     onPressed: () async {},
-          //   ),
-          // ),
+          Builder(
+            builder:
+                (context) => IconButton(
+                  icon: Icon(
+                    Icons.av_timer,
+                    color: JarvisTheme.of(context).info,
+                    size: 26.0,
+                  ),
+                  onPressed: () {
+                    _loadConversations(refresh: true);
+                    Scaffold.of(context).openEndDrawer();
+                  },
+                ),
+          ),
         ],
         centerTitle: false,
         elevation: 0.0,
+      ),
+      endDrawer: Drawer(
+        width: 400,
+        backgroundColor: theme.secondaryBackground,
+        child: Column(
+          children: [
+            AppBar(
+              backgroundColor: theme.secondaryBackground,
+              automaticallyImplyLeading: false,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  // setState(() {
+                  //   selectedKnowledgeBaseId = null;
+                  //   widget.apiStore.kbService.units.clear();
+                  // });
+                  _scaffoldKey.currentState?.openEndDrawer();
+                },
+              ),
+              title: Text('Chat History', style: theme.titleMedium),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () {
+                    // setState(() {
+                    //   selectedKnowledgeBaseId = null;
+                    //   widget.apiStore.kbService.units.clear();
+                    //   widget.apiStore.kbService.unitsPage = 0;
+                    //   widget.apiStore.kbService.hasMoreUnits = true;
+                    // });
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: TextFormField(
+                controller: _model.conversationSearchController,
+                focusNode: _model.conversationSearchFieldFocusNode,
+                onChanged: (value) {
+                  _loadConversations(refresh: true);
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search message...',
+                  hintStyle: theme.labelMedium,
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: theme.alternate),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: theme.alternate),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: theme.primary),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => _loadConversations(refresh: true),
+                child: Observer(
+                  builder: (context) {
+                    final conversations =
+                        widget.apiStore.jarvisService.conversations.toList();
+                    if (widget.apiStore.jarvisService.isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (conversations.isEmpty &&
+                        !widget.apiStore.jarvisService.isLoading) {
+                      return Center(
+                        child: Text(
+                          'No conversations available',
+                          style: JarvisTheme.of(context).bodyMedium,
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      controller: _model.conversationDrawerScrollController,
+                      itemCount:
+                          widget.apiStore.jarvisService.conversations.length,
+                      itemBuilder: (context, index) {
+                        if (index >=
+                            widget
+                                .apiStore
+                                .jarvisService
+                                .conversations
+                                .length) {
+                          return widget.apiStore.jarvisService.isLoading
+                              ? const Center(child: CircularProgressIndicator())
+                              : const SizedBox.shrink();
+                        }
+
+                        Conversation conversation =
+                            widget.apiStore.jarvisService.conversations[index];
+                        return CardConversationWidget(
+                          selectedConversationId: selectedConversationId,
+                          conversation: conversation,
+                          onTap: () => _selectConversation(conversation.id),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       body: Column(
         mainAxisSize: MainAxisSize.max,
@@ -236,6 +1530,9 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                   padding: EdgeInsetsDirectional.fromSTEB(0.0, 25.0, 0.0, 80.0),
                   child: Observer(
                     builder: (context) {
+                      if (isLoading && messages.isEmpty) {
+                        return Center(child: CircularProgressIndicator());
+                      }
                       return ListView.builder(
                         controller: _scrollController,
                         itemCount: messages.length,
@@ -267,104 +1564,317 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
                 ),
                 Align(
                   alignment: AlignmentDirectional(0.0, 1.0),
-                  child: Container(
-                    width: double.infinity,
-                    height: 80.0,
-                    decoration: BoxDecoration(
-                      color: JarvisTheme.of(context).secondaryBackground,
-                      border: Border.all(
-                        color: JarvisTheme.of(context).alternate,
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsetsDirectional.fromSTEB(
-                        16.0,
-                        12.0,
-                        16.0,
-                        12.0,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _model.textController,
-                              focusNode: _model.textFieldFocusNode,
-                              autofocus: false,
-                              textCapitalization: TextCapitalization.sentences,
-                              obscureText: false,
-                              decoration: InputDecoration(
-                                hintText: 'Type your message...',
-                                hintStyle: JarvisTheme.of(
-                                  context,
-                                ).labelMedium.override(
-                                  fontFamily: 'Inter',
-                                  letterSpacing: 0.0,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(
-                                    color: Color(0x00000000),
-                                    width: 0.0,
+                  child: Observer(
+                    builder: (context) {
+                      final fileCount = _model.selectedFiles.length;
+                      final baseHeight = 80.0;
+                      final fileHeight = 40.0;
+                      final totalHeight = baseHeight + (fileCount * fileHeight);
+
+                      return Container(
+                        width: double.infinity,
+                        height: totalHeight,
+                        decoration: BoxDecoration(
+                          color: JarvisTheme.of(context).secondaryBackground,
+                          border: Border.all(
+                            color: JarvisTheme.of(context).alternate,
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsetsDirectional.fromSTEB(
+                            16.0,
+                            12.0,
+                            16.0,
+                            12.0,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_model.selectedFiles.isNotEmpty)
+                                Container(
+                                  height: fileCount * fileHeight,
+                                  child: ListView.builder(
+                                    itemCount: _model.selectedFiles.length,
+                                    itemBuilder: (context, index) {
+                                      final file = _model.selectedFiles[index];
+                                      return Padding(
+                                        padding: EdgeInsets.only(bottom: 8.0),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.description,
+                                              color:
+                                                  JarvisTheme.of(
+                                                    context,
+                                                  ).secondaryText,
+                                              size: 24.0,
+                                            ),
+                                            SizedBox(width: 8.0),
+                                            Expanded(
+                                              child: Text(
+                                                file.name,
+                                                style: JarvisTheme.of(
+                                                  context,
+                                                ).bodyMedium.override(
+                                                  fontFamily: 'Inter',
+                                                  color:
+                                                      JarvisTheme.of(
+                                                        context,
+                                                      ).primaryText,
+                                                  letterSpacing: 0.0,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            SizedBox(width: 8.0),
+                                            Text(
+                                              'Document',
+                                              style: JarvisTheme.of(
+                                                context,
+                                              ).bodySmall.override(
+                                                fontFamily: 'Inter',
+                                                color:
+                                                    JarvisTheme.of(
+                                                      context,
+                                                    ).secondaryText,
+                                                letterSpacing: 0.0,
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: Icon(
+                                                Icons.close,
+                                                color:
+                                                    JarvisTheme.of(
+                                                      context,
+                                                    ).secondaryText,
+                                                size: 20.0,
+                                              ),
+                                              onPressed:
+                                                  () => _removeFile(file),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
                                   ),
-                                  borderRadius: BorderRadius.circular(24.0),
                                 ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(
-                                    color: Color(0x00000000),
-                                    width: 0.0,
-                                  ),
-                                  borderRadius: BorderRadius.circular(24.0),
-                                ),
-                                errorBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(
-                                    color: Color(0x00000000),
-                                    width: 0.0,
-                                  ),
-                                  borderRadius: BorderRadius.circular(24.0),
-                                ),
-                                focusedErrorBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(
-                                    color: Color(0x00000000),
-                                    width: 0.0,
-                                  ),
-                                  borderRadius: BorderRadius.circular(24.0),
-                                ),
-                                filled: true,
-                                fillColor:
-                                    JarvisTheme.of(context).primaryBackground,
-                                contentPadding: EdgeInsetsDirectional.fromSTEB(
-                                  16.0,
-                                  12.0,
-                                  16.0,
-                                  12.0,
+                              IntrinsicHeight(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.max,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(3.0),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.rectangle,
+                                        color: Colors.grey,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.local_fire_department),
+                                          if (currentToken == null)
+                                            SizedBox(
+                                              width: 10,
+                                              height: 10,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          else if (currentToken!.unlimited)
+                                            FaIcon(
+                                              FontAwesomeIcons.infinity,
+                                              size: 12,
+                                            )
+                                          else
+                                            Text(
+                                              currentToken!.availableTokens
+                                                  .toString(),
+                                              style: JarvisTheme.of(
+                                                context,
+                                              ).bodyMedium.override(
+                                                fontFamily: 'Inter',
+                                                color:
+                                                    JarvisTheme.of(
+                                                      context,
+                                                    ).primaryText,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(width: 8.0),
+                                    Builder(
+                                      builder:
+                                          (context) => JarvisIconButton(
+                                            borderRadius: 24,
+                                            buttonSize: 35,
+                                            fillColor: theme.secondary,
+                                            icon: const Icon(
+                                              Icons.book_rounded,
+                                              color: Colors.white,
+                                              size: 20,
+                                            ),
+                                            onPressed: () {
+                                              Scaffold.of(context).openDrawer();
+                                            },
+                                          ),
+                                    ),
+                                    SizedBox(width: 8.0),
+                                    Builder(
+                                      builder:
+                                          (context) => JarvisIconButton(
+                                            borderRadius: 24,
+                                            buttonSize: 35,
+                                            fillColor: theme.secondary,
+                                            icon: Icon(
+                                              Icons.add_circle_outline,
+                                              color:
+                                                  JarvisTheme.of(context).info,
+                                              size: 20.0,
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                messages.clear();
+                                                conversationHistory.clear();
+                                                selectedConversationId = null;
+                                              });
+                                            },
+                                          ),
+                                    ),
+
+                                    SizedBox(width: 8.0),
+                                    Expanded(
+                                      child: TextFormField(
+                                        key: textFieldKey,
+                                        controller: _model.textController,
+                                        focusNode: _model.textFieldFocusNode,
+                                        autofocus: false,
+                                        textCapitalization:
+                                            TextCapitalization.sentences,
+                                        obscureText: false,
+                                        decoration: InputDecoration(
+                                          hintText: 'Type your message...',
+                                          hintStyle: JarvisTheme.of(
+                                            context,
+                                          ).labelMedium.override(
+                                            fontFamily: 'Inter',
+                                            letterSpacing: 0.0,
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderSide: BorderSide(
+                                              color: Color(0x00000000),
+                                              width: 0.0,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              24.0,
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderSide: BorderSide(
+                                              color: Color(0x00000000),
+                                              width: 0.0,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              24.0,
+                                            ),
+                                          ),
+                                          errorBorder: OutlineInputBorder(
+                                            borderSide: BorderSide(
+                                              color: Color(0x00000000),
+                                              width: 0.0,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              24.0,
+                                            ),
+                                          ),
+                                          focusedErrorBorder:
+                                              OutlineInputBorder(
+                                                borderSide: BorderSide(
+                                                  color: Color(0x00000000),
+                                                  width: 0.0,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(24.0),
+                                              ),
+                                          filled: true,
+                                          fillColor:
+                                              JarvisTheme.of(
+                                                context,
+                                              ).primaryBackground,
+                                          contentPadding:
+                                              EdgeInsetsDirectional.fromSTEB(
+                                                16.0,
+                                                12.0,
+                                                16.0,
+                                                12.0,
+                                              ),
+                                          prefixIcon: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                icon: Icon(
+                                                  Icons.attach_file,
+                                                  color:
+                                                      JarvisTheme.of(
+                                                        context,
+                                                      ).secondaryText,
+                                                  size: 20.0,
+                                                ),
+                                                onPressed: _pickFile,
+                                              ),
+                                              IconButton(
+                                                icon: Icon(
+                                                  Icons.image,
+                                                  color:
+                                                      JarvisTheme.of(
+                                                        context,
+                                                      ).secondaryText,
+                                                  size: 20.0,
+                                                ),
+                                                onPressed: _pickImage,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        style: JarvisTheme.of(
+                                          context,
+                                        ).bodyMedium.override(
+                                          fontFamily: 'Inter',
+                                          letterSpacing: 0.0,
+                                        ),
+                                        cursorColor:
+                                            JarvisTheme.of(context).primary,
+                                        validator:
+                                            _model.textControllerValidator,
+                                        enabled: !isLoading,
+                                        onFieldSubmitted: (_) => _sendMessage(),
+                                      ),
+                                    ),
+                                    SizedBox(width: 8.0),
+                                    JarvisIconButton(
+                                      borderRadius: 24.0,
+                                      buttonSize: 35.0,
+                                      fillColor: Colors.transparent,
+                                          
+                                      icon: Icon(
+                                        Icons.send_rounded,
+                                        color: JarvisTheme.of(context).secondary,
+                                        size: 22.0,
+
+                                      ),
+                                      onPressed:
+                                          isLoading ? null : _sendMessage,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              style: JarvisTheme.of(
-                                context,
-                              ).bodyMedium.override(
-                                fontFamily: 'Inter',
-                                letterSpacing: 0.0,
-                              ),
-                              cursorColor: JarvisTheme.of(context).primary,
-                              validator: _model.textControllerValidator,
-                            ),
+                            ],
                           ),
-                          SizedBox(width: 12.0),
-                          JarvisIconButton(
-                            borderRadius: 24.0,
-                            buttonSize: 48.0,
-                            fillColor: JarvisTheme.of(context).secondary,
-                            icon: Icon(
-                              Icons.send_rounded,
-                              color: JarvisTheme.of(context).info,
-                              size: 24.0,
-                            ),
-                            onPressed: _sendMessage,
-                          ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -377,6 +1887,155 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
 
   Widget _buildMessageBubble(Message message) {
     final isUser = message.role == 'user';
+    if (isUser && message.content.startsWith('FILE:')) {
+      final parts = message.content.split(':');
+      if (parts.length >= 3) {
+        final fileName = parts[1];
+        final fileUrl = parts[2];
+        final extension = fileName.split('.').last.toLowerCase();
+
+        if (['jpg', 'jpeg', 'png', 'gif'].contains(extension)) {
+          return Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+                ),
+                decoration: BoxDecoration(
+                  color: JarvisTheme.of(context).secondary,
+                  borderRadius: BorderRadius.circular(16.0),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Image.network(
+                        fileUrl,
+                        height: 200,
+                        width: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder:
+                            (context, error, stackTrace) => Container(
+                              height: 200,
+                              width: 200,
+                              color:
+                                  JarvisTheme.of(context).secondaryBackground,
+                              child: Center(
+                                child: Icon(
+                                  Icons.error,
+                                  color: JarvisTheme.of(context).secondaryText,
+                                  size: 40,
+                                ),
+                              ),
+                            ),
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            height: 200,
+                            width: 200,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value:
+                                    loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress
+                                                .cumulativeBytesLoaded /
+                                            (loadingProgress
+                                                    .expectedTotalBytes ??
+                                                1)
+                                        : null,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      SizedBox(height: 8.0),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.image,
+                            color: JarvisTheme.of(context).secondaryText,
+                            size: 24.0,
+                          ),
+                          SizedBox(width: 8.0),
+                          Expanded(
+                            child: Text(
+                              fileName,
+                              style: JarvisTheme.of(
+                                context,
+                              ).bodyMedium.override(
+                                fontFamily: 'Inter',
+                                color: JarvisTheme.of(context).info,
+                                letterSpacing: 0.0,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        } else {
+          return Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+                ),
+                decoration: BoxDecoration(
+                  color: JarvisTheme.of(context).secondary,
+                  borderRadius: BorderRadius.circular(16.0),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.description,
+                        color: JarvisTheme.of(context).secondaryText,
+                        size: 24.0,
+                      ),
+                      SizedBox(width: 8.0),
+                      Expanded(
+                        child: Text(
+                          fileName,
+                          style: JarvisTheme.of(context).bodyMedium.override(
+                            fontFamily: 'Inter',
+                            color: JarvisTheme.of(context).info,
+                            letterSpacing: 0.0,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      SizedBox(width: 8.0),
+                      Text(
+                        'Document',
+                        style: JarvisTheme.of(context).bodySmall.override(
+                          fontFamily: 'Inter',
+                          color: JarvisTheme.of(context).secondaryText,
+                          letterSpacing: 0.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    }
+
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       child: Align(
@@ -421,5 +2080,147 @@ class _AIMessagePageWidgetState extends State<AIMessagePage> {
         ),
       ),
     );
+  }
+}
+
+class CardConversationWidget extends StatelessWidget {
+  final Conversation conversation;
+  final VoidCallback onTap;
+  final String? selectedConversationId;
+
+  const CardConversationWidget({
+    required this.conversation,
+    required this.onTap,
+    this.selectedConversationId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      elevation: 0,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Container(
+                //   width: 44,
+                //   height: 44,
+                //   decoration: BoxDecoration(
+                //     color: JarvisTheme.of(context).accent1,
+                //     shape: BoxShape.circle,
+                //     border: Border.all(
+                //       color: JarvisTheme.of(context).primary,
+                //       width: 2,
+                //     ),
+                //   ),
+                //   child: Padding(
+                //     padding: const EdgeInsets.all(2),
+                //     child: ClipRRect(
+                //       borderRadius: BorderRadius.circular(40),
+                //       child: Image.network(
+                //         'https://source.unsplash.com/random/1280x720?ai&${conversation.id}',
+                //         width: 44,
+                //         height: 44,
+                //         fit: BoxFit.cover,
+                //         errorBuilder: (context, error, stackTrace) => Icon(Icons.error, color: Colors.grey),
+                //       ),
+                //     ),
+                //   ),
+                // ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(8, 0, 0, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                conversation.title ?? 'Unknown ',
+                                style: JarvisTheme.of(
+                                  context,
+                                ).titleMedium.copyWith(
+                                  fontFamily: 'Inter',
+                                  letterSpacing: 0.0,
+                                  color:
+                                      selectedConversationId == conversation.id
+                                          ? JarvisTheme.of(context).primary
+                                          : JarvisTheme.of(context).primaryText,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (selectedConversationId != null &&
+                                selectedConversationId == conversation.id)
+                              Icon(Icons.check_circle, color: Colors.green),
+                          ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsetsDirectional.fromSTEB(
+                            0,
+                            4,
+                            0,
+                            0,
+                          ),
+                          child: Text(
+                            _formatRelativeTime(conversation.createdAt),
+                            style: JarvisTheme.of(context).labelSmall.copyWith(
+                              fontFamily: 'Inter',
+                              letterSpacing: 0.0,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatRelativeTime(dynamic dateTimeInput) {
+    try {
+      DateTime date;
+      if (dateTimeInput is String) {
+        date = DateTime.parse(dateTimeInput);
+      } else if (dateTimeInput is DateTime) {
+        date = dateTimeInput;
+      } else if (dateTimeInput is int) {
+        date = DateTime.fromMillisecondsSinceEpoch(dateTimeInput);
+      } else {
+        return 'Invalid date';
+      }
+
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inHours < 1) {
+        return 'an hour ago';
+      } else if (difference.inDays < 1) {
+        return 'a day ago';
+      } else if (difference.inDays < 10) {
+        return '${difference.inDays} days ago';
+      } else {
+        return '23 days ago'; // Simplified for this example, adjust as needed
+      }
+    } catch (e) {
+      return 'Invalid date';
+    }
   }
 }

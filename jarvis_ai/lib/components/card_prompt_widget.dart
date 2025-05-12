@@ -20,12 +20,14 @@ class CardPromtWidget extends StatefulWidget {
   final Function(bool)? onFavoriteChanged;
   final JarvisService jarvisService;
   final VoidCallback? onEditPressed;
+  final VoidCallback? onTap;
   const CardPromtWidget({
     super.key,
     required this.prompt,
     this.onFavoriteChanged,
     required this.jarvisService,
     this.onEditPressed,
+    this.onTap
   });
 
   @override
@@ -50,9 +52,9 @@ class _CardPromtWidgetState extends State<CardPromtWidget> {
   Future<void> _handleFavoriteToggle() async {
     try {
       await widget.jarvisService.toggleFavorite(widget.prompt.id);
-      if (widget.onFavoriteChanged != null) {
-        widget.onFavoriteChanged!(!widget.prompt.isFavorite!);
-      }
+      // if (widget.onFavoriteChanged != null) {
+      //   widget.onFavoriteChanged!(!widget.prompt.isFavorite!);
+      // }
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -94,7 +96,7 @@ class _CardPromtWidgetState extends State<CardPromtWidget> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _navigateToPromptDetail,
+      onTap: widget.onTap,
       child: Padding(
         padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 16.0),
         child: Container(

@@ -1,17 +1,37 @@
-// Updated JarvisService using apiService methods
 import 'dart:convert';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:jarvis_ai/models/conversation.dart';
+import 'package:jarvis_ai/models/email_response.dart';
 import 'package:jarvis_ai/models/member.dart';
 import 'package:jarvis_ai/models/prompt.dart';
+import 'package:jarvis_ai/models/query_message.dart';
+import 'package:jarvis_ai/models/token.dart';
 import 'package:jarvis_ai/models/user.dart';
+import 'package:jarvis_ai/models/user_token.dart';
 import 'package:jarvis_ai/services/api_service.dart';
 import 'package:jarvis_ai/services/exceptions/api_exception.dart';
 import 'package:mobx/mobx.dart';
 
 part 'jarvis_service.g.dart';
+
+class MessageResponse {
+  final String? message;
+  final String? conversationId;
+  final num? remainingUsage;
+
+  MessageResponse({this.message, this.remainingUsage, this.conversationId});
+
+  factory MessageResponse.fromJson(Map<String, dynamic> json) {
+    return MessageResponse(
+      message: json['message'] as String?,
+      remainingUsage: json['remainingUsage'] as num,
+      conversationId: json['conversationId'] as String?,
+    );
+  }
+}
 
 class JarvisService = _JarvisService with _$JarvisService;
 
@@ -37,9 +57,39 @@ abstract class _JarvisService with Store {
 
   @observable
   bool hasMorePrompts = true;
-
+  @observable
+  bool hasMoreConversations = true;
   @observable
   String? promptSearchQuery;
+  @observable
+  bool isUserTokenLoading = false;
+  @action
+  Future<UserToken?> getUserToken() async {
+    isUserTokenLoading = true;
+    try {
+      final user = await getUser();
+      final response = await _apiService.get(
+        '/api/v1/subscriptions/me',
+        headers: {
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+      );
+      if (response == null) {
+        return null;
+      }
+      print('Response: $response');
+      return UserToken.fromJson(response);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error fetching user token: $e');
+      return null;
+    } finally {
+      runInAction(() {
+        isUserTokenLoading = false;
+      });
+    }
+  }
 
   @action
   Future<Member?> getCurrentUser() async {
@@ -145,41 +195,39 @@ abstract class _JarvisService with Store {
   Future<void> toggleFavorite(String id) async {
     try {
       UserModel? user = await getUser();
-      Prompt prompt = prompts.firstWhere((x) => x.id == id);
-      if (prompt.isFavorite != null) {
-        final response =
-            !prompt.isFavorite!
-                ? await http.post(
-                  Uri.parse('$baseUrl/api/v1/prompts/${id}/favorite'),
-                  headers: {
-                    'x-jarvis-guid': '',
-                    'Authorization': 'Bearer ${user?.accessToken}',
-                  },
-                  body: {},
-                )
-                : await http.delete(
-                  Uri.parse('$baseUrl/api/v1/prompts/${id}/favorite'),
-                  headers: {
-                    'x-jarvis-guid': '',
-                    'Authorization': 'Bearer ${user?.accessToken}',
-                  },
-                );
-        if (response.statusCode == 401) {
-          throw ApiException('Session expired', 401, {});
-        }
-        final index = prompts.indexWhere((prompt) => prompt.id == id);
-        if (index != -1) {
-          final oldPrompt = prompts[index];
-          print('Old prompt: $oldPrompt');
-          prompts[index] = oldPrompt.copyWith(
-            isFavorite: !(oldPrompt.isFavorite ?? false),
-          );
-        }
+
+      Prompt prompt = prompts.firstWhere(
+        (x) => x.id == id,
+        orElse: () => throw ApiException('Prompt not found', 404, {}),
+      );
+      bool currentFavorite = prompt.isFavorite ?? false;
+
+      final headers = {
+        'x-jarvis-guid': '',
+        'Authorization': 'Bearer ${user!.accessToken}',
+        'Accept': 'application/json, text/plain, */*', // Matching curl
+      };
+
+      final response =
+          currentFavorite
+              ? await _apiService.delete(
+                '/api/v1/prompts/${id}/favorite',
+                headers: headers,
+                body: {},
+              )
+              : await _apiService.post(
+                '/api/v1/prompts/${id}/favorite',
+                headers: headers,
+                body: {},
+              );
+      final index = prompts.indexWhere((p) => p.id == id);
+      if (index != -1) {
+        final oldPrompt = prompts[index];
+        prompts[index] = oldPrompt.copyWith(isFavorite: !currentFavorite);
       }
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {
-        // This will trigger the unauthorized handler in ApiService
-        rethrow;
+        rethrow; // Let ApiService handle unauthorized
       }
       print('Error toggling favorite: $e');
       rethrow;
@@ -349,6 +397,7 @@ abstract class _JarvisService with Store {
       };
 
       final queryString = Uri(queryParameters: params).query;
+      print('QueryString: $queryString');
       final response = await _apiService.get(
         '/api/v1/ai-chat/conversations?$queryString',
         headers: {
@@ -375,11 +424,124 @@ abstract class _JarvisService with Store {
   }
 
   @action
-  Future<String?> sendMessage({
+  Future<List<MessageQuery>?> getConversationHistory({
+    required String conversationId,
+    String assistantModel = 'dify',
+    required String assistantId,
+    int limit = 20,
+    String cursor = '',
+  }) async {
+    try {
+      final user = await getUser();
+      final params = {
+        'limit': limit.toString(),
+        'assistantId': assistantId,
+        'cursor': cursor,
+        'assistantModel': assistantModel,
+      };
+      final queryString = Uri(queryParameters: params).query;
+      print('QueryString: $queryString');
+      final response = await _apiService.get(
+        '/api/v1/ai-chat/conversations/$conversationId/messages?$queryString',
+        headers: {'Authorization': 'Bearer ${user!.accessToken}'},
+      );
+      print('Conversation history: $response');
+      if (response == null || response['items'] == null) {
+        return null;
+      }
+      return (response['items'] as List)
+          .map((item) => MessageQuery.fromJson(item))
+          .toList();
+    } catch (e) {
+      print('Error fetching conversation history: $e');
+      return null;
+    }
+  }
+
+  @action
+  Future<dynamic> requestSignedUrl({
+    required String filename,
+    required String mimetype,
+  }) async {
+    try {
+      final user = await getUser();
+      final requestBody = {'filename': filename, 'mimetype': mimetype};
+      final response = await _apiService.post(
+        '/api/v1/files/upload',
+        body: requestBody,
+        headers: {
+          'Content-Type': 'application/json',
+          'priority': 'u=1, i',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+      );
+      if (response == null) {
+        return null;
+      }
+      print('Response: $response');
+      return response;
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error fetching signed URL: $e');
+      return null;
+    }
+  }
+
+  @action
+  Future<bool> uploadFileToSignedUrl({
+    required String signedUrl,
+    required PlatformFile file,
+    required String mimetype,
+  }) async {
+    final headers = {
+      'Content-Type': mimetype,
+      'X-Goog-Content-Length-Range': '0,1073741824',
+    };
+
+    final response = await http.put(
+      Uri.parse(signedUrl),
+      headers: headers,
+      body: file.bytes,
+    );
+
+    return response.statusCode == 200;
+  }
+
+  @action
+  Future<dynamic> notifyUploadSuccess({
+    required String filename,
+    required String mimetype,
+  }) async {
+    try {
+      final user = await getUser();
+      final requestBody = {'filename': filename, 'mimetype': mimetype};
+      final response = await _apiService.post(
+        '/api/v1/files/upload/success',
+        body: requestBody,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+      );
+      if (response == null) {
+        return null;
+      }
+      print('Response: $response');
+      return response;
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error notifying upload success: $e');
+      return null;
+    }
+  }
+
+  @action
+  Future<MessageResponse?> sendMessage({
     required String content,
     required Assistant assistant,
     List<String> files = const [],
     List<Map<String, dynamic>> conversationHistory = const [],
+    String? conversationId,
   }) async {
     try {
       final user = await getUser();
@@ -389,30 +551,22 @@ abstract class _JarvisService with Store {
         files: files,
         role: 'user',
       );
-      late dynamic requestBody = {};
-      if (conversationHistory.isEmpty) {
-        requestBody = {
-          'content': content,
-          'files': files,
-          'metadata': {
-            'conversation': {'messages': userMessage.toJson()},
+      final messages =
+          conversationHistory.isEmpty
+              ? [userMessage.toJson()]
+              : [...conversationHistory, userMessage.toJson()];
+      final requestBody = {
+        'content': content,
+        'files': files,
+        'metadata': {
+          'conversation': {
+            if (conversationId != null) 'id': conversationId,
+            'messages': messages,
           },
-          'assistant': assistant.toJson(),
-        };
-        print('User message: $userMessage');
-      } else {
-        final updatedHistory = List<Map<String, dynamic>>.from(
-          conversationHistory,
-        )..add(userMessage.toJson());
-        requestBody = {
-          'content': content,
-          'files': files,
-          'metadata': {
-            'conversation': {'messages': updatedHistory},
-          },
-          'assistant': assistant.toJson(),
-        };
-      }
+        },
+        'assistant': assistant.toJson(),
+      };
+
       final data = await _apiService.post(
         '/api/v1/ai-chat/messages',
         headers: {
@@ -422,11 +576,12 @@ abstract class _JarvisService with Store {
         },
         body: requestBody,
       );
-      print('data $data');
-      return data['message'] ?? 'No response content';
+      print('Data: $data');
+      return MessageResponse.fromJson(data);
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) rethrow;
-      print('Error updating prompt: $e');
+      print('Error send message: $e');
+      rethrow;
     }
   }
 
@@ -435,5 +590,114 @@ abstract class _JarvisService with Store {
     String? userJson = await _secureStorage.read(key: 'user');
     if (userJson == null) return null;
     return UserModel.fromJson(jsonDecode(userJson));
+  }
+
+  @action
+  Future<Token?> getUsage() async {
+    try {
+      final user = await getUser();
+
+      final response = await _apiService.get(
+        '/api/v1/tokens/usage',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jarvis-guid': '',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+      );
+      if (response == null) {
+        return null;
+      }
+      return Token.fromJson(response);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) rethrow;
+      print('Error send message: $e');
+    }
+  }
+
+  @action
+  Future<EmailResponse?> responseEmail({
+    required String mainIdea,
+    required String action,
+    required String email,
+    required String subject,
+    required String sender,
+    required String receiver,
+    String length = 'long',
+    String formality = 'neutral',
+    String tone = 'friendly',
+    String language = 'vietnamese',
+  }) async {
+    try {
+      final user = await getUser();
+      final requestBody = {
+        'mainIdea': mainIdea,
+        'action': action,
+        'email': email,
+        'metadata': {
+          'context': [],
+          'subject': subject,
+          'sender': sender,
+          'receiver': receiver,
+          'style': {'length': length, 'formality': formality, 'tone': tone},
+          'language': language,
+        },
+      };
+
+      final response = await _apiService.post(
+        '/api/v1/ai-email',
+        headers: {
+          'x-jarvis-guid': '',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+        body: requestBody,
+      );
+
+      return EmailResponse.fromJson(response);
+    } catch (e) {
+      print('Error generating email response: $e');
+      return null;
+    }
+  }
+
+  @action
+  Future<List<String>?> suggestReplyIdea({
+    required String action,
+    required String email,
+    required String subject,
+    required String sender,
+    required String receiver,
+    String language = 'vietnamese',
+  }) async {
+    try {
+      final user = await getUser();
+      final requestBody = {
+        'action': action,
+        'email': email,
+        'metadata': {
+          'context': [],
+          'subject': subject,
+          'sender': sender,
+          'receiver': receiver,
+          'language': language,
+        },
+      };
+      print('Request body: $requestBody');
+      final response = await _apiService.post(
+        '/api/v1/ai-email/reply-ideas',
+        headers: {
+          'x-jarvis-guid': '',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${user!.accessToken}',
+        },
+        body: requestBody,
+      );
+      print('Response: $response');
+      return List<String>.from(response['ideas'] ?? []);
+    } catch (e) {
+      print('Error generating email response: $e');
+      return null;
+    }
   }
 }

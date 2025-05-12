@@ -65,7 +65,6 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
   void _scrollListener() {
     if (_scrollController.position.pixels ==
         _scrollController.position.maxScrollExtent) {
-      print('fwefnweoifwnfoiwenfow');
       widget.apiStore.jarvisService.loadMorePrompts();
     }
   }
@@ -339,8 +338,8 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
                             // Handle favorite toggle
                           },
                           jarvisService: widget.apiStore.jarvisService,
-                          onEditPressed: () {
-                            Navigator.push(
+                          onEditPressed: () async {
+                            final result = await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) {
@@ -351,6 +350,9 @@ class _PromptManagingWidgetState extends State<PromptManagingPage> {
                                 },
                               ),
                             );
+                            if (result == true) {
+                              await _loadPrompts(refresh: true);
+                            }
                           },
                         );
                       },

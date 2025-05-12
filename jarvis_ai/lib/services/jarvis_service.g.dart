@@ -105,6 +105,23 @@ mixin _$JarvisService on _JarvisService, Store {
     });
   }
 
+  late final _$hasMoreConversationsAtom =
+      Atom(name: '_JarvisService.hasMoreConversations', context: context);
+
+  @override
+  bool get hasMoreConversations {
+    _$hasMoreConversationsAtom.reportRead();
+    return super.hasMoreConversations;
+  }
+
+  @override
+  set hasMoreConversations(bool value) {
+    _$hasMoreConversationsAtom.reportWrite(value, super.hasMoreConversations,
+        () {
+      super.hasMoreConversations = value;
+    });
+  }
+
   late final _$promptSearchQueryAtom =
       Atom(name: '_JarvisService.promptSearchQuery', context: context);
 
@@ -119,6 +136,30 @@ mixin _$JarvisService on _JarvisService, Store {
     _$promptSearchQueryAtom.reportWrite(value, super.promptSearchQuery, () {
       super.promptSearchQuery = value;
     });
+  }
+
+  late final _$isUserTokenLoadingAtom =
+      Atom(name: '_JarvisService.isUserTokenLoading', context: context);
+
+  @override
+  bool get isUserTokenLoading {
+    _$isUserTokenLoadingAtom.reportRead();
+    return super.isUserTokenLoading;
+  }
+
+  @override
+  set isUserTokenLoading(bool value) {
+    _$isUserTokenLoadingAtom.reportWrite(value, super.isUserTokenLoading, () {
+      super.isUserTokenLoading = value;
+    });
+  }
+
+  late final _$getUserTokenAsyncAction =
+      AsyncAction('_JarvisService.getUserToken', context: context);
+
+  @override
+  Future<UserToken?> getUserToken() {
+    return _$getUserTokenAsyncAction.run(() => super.getUserToken());
   }
 
   late final _$getCurrentUserAsyncAction =
@@ -241,20 +282,74 @@ mixin _$JarvisService on _JarvisService, Store {
         refresh: refresh));
   }
 
+  late final _$getConversationHistoryAsyncAction =
+      AsyncAction('_JarvisService.getConversationHistory', context: context);
+
+  @override
+  Future<List<MessageQuery>?> getConversationHistory(
+      {required String conversationId,
+      String assistantModel = 'dify',
+      required String assistantId,
+      int limit = 20,
+      String cursor = ''}) {
+    return _$getConversationHistoryAsyncAction.run(() => super
+        .getConversationHistory(
+            conversationId: conversationId,
+            assistantModel: assistantModel,
+            assistantId: assistantId,
+            limit: limit,
+            cursor: cursor));
+  }
+
+  late final _$requestSignedUrlAsyncAction =
+      AsyncAction('_JarvisService.requestSignedUrl', context: context);
+
+  @override
+  Future<dynamic> requestSignedUrl(
+      {required String filename, required String mimetype}) {
+    return _$requestSignedUrlAsyncAction.run(
+        () => super.requestSignedUrl(filename: filename, mimetype: mimetype));
+  }
+
+  late final _$uploadFileToSignedUrlAsyncAction =
+      AsyncAction('_JarvisService.uploadFileToSignedUrl', context: context);
+
+  @override
+  Future<bool> uploadFileToSignedUrl(
+      {required String signedUrl,
+      required PlatformFile file,
+      required String mimetype}) {
+    return _$uploadFileToSignedUrlAsyncAction.run(() => super
+        .uploadFileToSignedUrl(
+            signedUrl: signedUrl, file: file, mimetype: mimetype));
+  }
+
+  late final _$notifyUploadSuccessAsyncAction =
+      AsyncAction('_JarvisService.notifyUploadSuccess', context: context);
+
+  @override
+  Future<dynamic> notifyUploadSuccess(
+      {required String filename, required String mimetype}) {
+    return _$notifyUploadSuccessAsyncAction.run(() =>
+        super.notifyUploadSuccess(filename: filename, mimetype: mimetype));
+  }
+
   late final _$sendMessageAsyncAction =
       AsyncAction('_JarvisService.sendMessage', context: context);
 
   @override
-  Future<String?> sendMessage(
+  Future<MessageResponse?> sendMessage(
       {required String content,
       required Assistant assistant,
       List<String> files = const [],
-      List<Map<String, dynamic>> conversationHistory = const []}) {
+      List<Map<String, dynamic>> conversationHistory = const [],
+      String? conversationId}) {
     return _$sendMessageAsyncAction.run(() => super.sendMessage(
         content: content,
         assistant: assistant,
         files: files,
-        conversationHistory: conversationHistory));
+        conversationHistory: conversationHistory,
+        conversationId: conversationId));
   }
 
   late final _$getUserAsyncAction =
@@ -263,6 +358,62 @@ mixin _$JarvisService on _JarvisService, Store {
   @override
   Future<UserModel?> getUser() {
     return _$getUserAsyncAction.run(() => super.getUser());
+  }
+
+  late final _$getUsageAsyncAction =
+      AsyncAction('_JarvisService.getUsage', context: context);
+
+  @override
+  Future<Token?> getUsage() {
+    return _$getUsageAsyncAction.run(() => super.getUsage());
+  }
+
+  late final _$responseEmailAsyncAction =
+      AsyncAction('_JarvisService.responseEmail', context: context);
+
+  @override
+  Future<EmailResponse?> responseEmail(
+      {required String mainIdea,
+      required String action,
+      required String email,
+      required String subject,
+      required String sender,
+      required String receiver,
+      String length = 'long',
+      String formality = 'neutral',
+      String tone = 'friendly',
+      String language = 'vietnamese'}) {
+    return _$responseEmailAsyncAction.run(() => super.responseEmail(
+        mainIdea: mainIdea,
+        action: action,
+        email: email,
+        subject: subject,
+        sender: sender,
+        receiver: receiver,
+        length: length,
+        formality: formality,
+        tone: tone,
+        language: language));
+  }
+
+  late final _$suggestReplyIdeaAsyncAction =
+      AsyncAction('_JarvisService.suggestReplyIdea', context: context);
+
+  @override
+  Future<List<String>?> suggestReplyIdea(
+      {required String action,
+      required String email,
+      required String subject,
+      required String sender,
+      required String receiver,
+      String language = 'vietnamese'}) {
+    return _$suggestReplyIdeaAsyncAction.run(() => super.suggestReplyIdea(
+        action: action,
+        email: email,
+        subject: subject,
+        sender: sender,
+        receiver: receiver,
+        language: language));
   }
 
   @override
@@ -274,7 +425,9 @@ prompts: ${prompts},
 conversations: ${conversations},
 currentPage: ${currentPage},
 hasMorePrompts: ${hasMorePrompts},
-promptSearchQuery: ${promptSearchQuery}
+hasMoreConversations: ${hasMoreConversations},
+promptSearchQuery: ${promptSearchQuery},
+isUserTokenLoading: ${isUserTokenLoading}
     ''';
   }
 }

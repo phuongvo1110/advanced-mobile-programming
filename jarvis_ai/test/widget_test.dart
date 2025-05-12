@@ -7,6 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jarvis_ai/app.dart';
 
 import 'package:jarvis_ai/main.dart';
 
