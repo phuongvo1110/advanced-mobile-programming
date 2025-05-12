@@ -808,74 +808,41 @@ abstract class _KBService with Store {
   }
 
   @action
-  Future<void> sendMessage({
-    required String assistantId,
-    required String message,
-  }) async {
+Future<Stream<String>> sendMessage({
+  required String assistantId,
+  required String message,
+}) async {
+  runInAction(() {
+    isMessageLoading = true;
+  });
+
+  try {
+    UserModel? user = await getUser();
+    final requestBody = {'message': message};
+    print('Send Message Body: $requestBody');
+    final stream = await _apiService.stream(
+      '/kb-core/v1/ai-assistant/$assistantId/ask',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-jarvis-guid': '',
+        'Authorization': 'Bearer ${user!.accessToken}',
+        'Accept': 'text/event-stream',
+      },
+      body: requestBody,
+    );
+    // Cast the Stream<dynamic> to Stream<String>
+    print('Stream received: $stream');
+    return stream.cast<String>();
+  } catch (e) {
+    print('Error sending message: $e');
+    if (e is ApiException && e.statusCode == 401) rethrow;
+    rethrow;
+  } finally {
     runInAction(() {
-      isMessageLoading = true;
+      isMessageLoading = false;
     });
-
-    try {
-      UserModel? user = await getUser();
-      final requestBody = {'message': message};
-      print('Send Message Body: $requestBody');
-
-      // Make a streaming request using _apiService
-      final stream = await _apiService.stream(
-        '/kb-core/v1/ai-assistant/$assistantId/ask',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-jarvis-guid': '',
-          'Authorization': 'Bearer ${user!.accessToken}',
-          'Accept': 'text/event-stream',
-        },
-        body: requestBody,
-      );
-
-      StringBuffer fullMessage = StringBuffer();
-      String? conversationId;
-
-      // Process the streamed response
-      await for (var line in stream) {
-        print('Streamed line: $line');
-        if (line.startsWith('event: message')) {
-          // Next line should be the data
-          continue;
-        } else if (line.startsWith('data: ')) {
-          final dataString = line.substring(6); // Remove "data: " prefix
-          if (dataString.isEmpty) continue;
-
-          try {
-            final data = jsonDecode(dataString) as Map<String, dynamic>;
-            final content = data['content'] as String? ?? '';
-            conversationId = data['conversationId'] as String?;
-            fullMessage.write(content);
-          } catch (e) {
-            print('Error parsing data line: $e');
-            continue;
-          }
-        }
-      }
-
-      // After the stream ends, create a single ThreadMessage with the concatenated content
-      final assistantMessage = ThreadMessage(
-        role: 'assistant',
-        createdAt: (DateTime.now().millisecondsSinceEpoch ~/ 1000),
-        content: fullMessage.toString(),
-      );
-      messages.add(assistantMessage);
-      print('Final Assistant Message: ${assistantMessage.content}');
-    } catch (e) {
-      print('Error sending message: $e');
-      if (e is ApiException && e.statusCode == 401) rethrow;
-      rethrow;
-    } finally {
-      runInAction(() {
-        isMessageLoading = false;
-      });
-    }
   }
+}
 
   @action
   Future<void> getKnowledgeUnits({

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:confirm_dialog/confirm_dialog.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +22,7 @@ import 'package:jarvis_ai/components/card_prompt_widget.dart';
 import 'package:jarvis_ai/theme/flutter_flow_choice_chips.dart';
 import 'package:jarvis_ai/theme/form_field_controller.dart';
 import 'package:mobx/mobx.dart';
+import 'dart:convert';
 
 class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
   FocusNode? textFieldFocusNode;
@@ -77,7 +80,6 @@ class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
     promptScrollController = ScrollController();
     promptDrawerScrollController = ScrollController();
     promptSearchController = TextEditingController();
-
     knowledgeUnitsScrollController = ScrollController();
     promptSearchFieldFocusNode = FocusNode();
     choiceChipsController = FormFieldController<List<String>>(['All']);
@@ -85,6 +87,11 @@ class PreviewpageModel extends FlutterFlowModel<PreviewpageWidget> {
     knowledgeUnitsSearchFieldFocusNode = FocusNode();
     knowledgeBasesSearchFieldFocusNode = FocusNode();
     knowledgeBasesSearchController = TextEditingController();
+    instructionController =
+        TextEditingController(); // Ensure this is initialized
+    instructionFieldFocusNode = FocusNode();
+    textController = TextEditingController();
+    textFieldFocusNode = FocusNode();
   }
 
   @override
@@ -127,9 +134,14 @@ class PreviewpageWidget extends StatefulWidget {
 class _PreviewpageWidgetState extends State<PreviewpageWidget> {
   late PreviewpageModel _model;
   AssistantDetail? _assistant;
-  GlobalKey textFieldKey = GlobalKey();
   GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String? selectedKnowledgeBaseId;
+  StringBuffer _assistantMessageBuffer = StringBuffer();
+  ThreadMessage? _currentAssistantMessage;
+  Stream<String>? _currentStream;
+  StreamSubscription? _streamSubscription;
+  final GlobalKey textFieldKey = GlobalKey();
+  bool _isSending = false;
   @override
   void initState() {
     super.initState();
@@ -314,7 +326,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     final text = _model.textController!.text;
     if (text.startsWith('/')) {
       if (!_model.isPromptDropdownVisible) {
-        _showPromptDropdown();
+        _showPromptDropdown(textFieldKey);
       }
     } else {
       if (_model.isPromptDropdownVisible) {
@@ -323,7 +335,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     }
   }
 
-  void _showPromptDropdown() {
+  void _showPromptDropdown(GlobalKey textFieldKey) {
     if (_model.promptOverlayEntry != null) return;
 
     final RenderBox? renderBox =
@@ -1453,11 +1465,139 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     );
   }
 
+  void _handleStream(Stream<String> stream) {
+    if (_currentStream != null) {
+      return;
+    }
+
+    setState(() {
+      _currentStream = stream;
+      _assistantMessageBuffer.clear();
+      _currentAssistantMessage = ThreadMessage(
+        role: 'assistant',
+        createdAt: (DateTime.now().millisecondsSinceEpoch ~/ 1000),
+        content: '',
+      );
+      widget.apiStore.kbService.messages.add(_currentAssistantMessage!);
+    });
+
+    _streamSubscription?.cancel();
+    _streamSubscription = stream.listen(
+      (line) {
+        print('Streamed line: $line');
+        if (line.startsWith('data: ')) {
+          final dataString = line.substring(6);
+          if (dataString.isNotEmpty) {
+            try {
+              final data = jsonDecode(dataString) as Map<String, dynamic>;
+              final content = data['content'] as String? ?? '';
+              if (content.isNotEmpty) {
+                setState(() {
+                  _assistantMessageBuffer.write(content);
+                  final updatedMessage = ThreadMessage(
+                    role: 'assistant',
+                    createdAt: _currentAssistantMessage!.createdAt,
+                    content: _assistantMessageBuffer.toString(),
+                  );
+                  final index = widget.apiStore.kbService.messages.indexOf(
+                    _currentAssistantMessage!,
+                  );
+                  widget.apiStore.kbService.messages[index] = updatedMessage;
+                  _currentAssistantMessage = updatedMessage;
+                });
+              }
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (_model.chatScrollController != null &&
+                    _model.chatScrollController!.hasClients) {
+                  _model.chatScrollController!.jumpTo(
+                    _model.chatScrollController!.position.maxScrollExtent,
+                  );
+                }
+              });
+            } catch (e) {
+              print('Error parsing data line: $e');
+            }
+          }
+        } else if (line.startsWith('event: message_end')) {
+          setState(() {
+            _currentStream = null;
+            _streamSubscription?.cancel();
+            _streamSubscription = null;
+            // Persist the final message
+            if (_currentAssistantMessage != null) {
+              final finalMessage = ThreadMessage(
+                role: 'assistant',
+                createdAt: _currentAssistantMessage!.createdAt,
+                content: _assistantMessageBuffer.toString(),
+              );
+              final index = widget.apiStore.kbService.messages.indexOf(
+                _currentAssistantMessage!,
+              );
+              widget.apiStore.kbService.messages[index] = finalMessage;
+              _currentAssistantMessage = null; // Clear the temporary reference
+            }
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_model.chatScrollController != null &&
+                  _model.chatScrollController!.hasClients) {
+                _model.chatScrollController!.jumpTo(
+                  _model.chatScrollController!.position.maxScrollExtent,
+                );
+              }
+            });
+          });
+        }
+      },
+      onError: (error) {
+        print('Stream error: $error');
+        setState(() {
+          _currentStream = null;
+          _streamSubscription?.cancel();
+          _streamSubscription = null;
+        });
+      },
+      onDone: () {
+        print('Stream completed');
+        setState(() {
+          _currentStream = null;
+          _streamSubscription?.cancel();
+          _streamSubscription = null;
+          if (_currentAssistantMessage != null) {
+            final finalMessage = ThreadMessage(
+              role: 'assistant',
+              createdAt: _currentAssistantMessage!.createdAt,
+              content: _assistantMessageBuffer.toString(),
+            );
+            final index = widget.apiStore.kbService.messages.indexOf(
+              _currentAssistantMessage!,
+            );
+            widget.apiStore.kbService.messages[index] = finalMessage;
+            _currentAssistantMessage = null; // Clear the temporary reference
+          }
+        });
+      },
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_model.chatScrollController != null &&
+          _model.chatScrollController!.hasClients) {
+        _model.chatScrollController!.jumpTo(
+          _model.chatScrollController!.position.maxScrollExtent,
+        );
+      }
+    });
+  }
+
   Future<void> _sendMessageWithPrompt({
     required String promptContent,
     required String userInput,
     required String language,
   }) async {
+    if (_isSending || (userInput.isEmpty && promptContent.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please wait or enter input')),
+      );
+      return;
+    }
     if (widget.existingAssistant == null || _assistant == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Assistant or thread ID is missing')),
@@ -1486,13 +1626,30 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
         }
       }
     }
-    final message = modifiedPrompt;
+    final message = modifiedPrompt.trim();
+    final messages = widget.apiStore.kbService.messages;
+    if (messages.any(
+      (m) =>
+          m.role == 'user' &&
+          m.content == message &&
+          DateTime.now()
+                  .difference(
+                    DateTime.fromMillisecondsSinceEpoch(m.createdAt * 1000),
+                  )
+                  .inSeconds <
+              5,
+    )) {
+      return;
+    }
+
+    setState(() => _isSending = true);
     final userMessage = ThreadMessage(
       role: 'user',
       createdAt: (DateTime.now().millisecondsSinceEpoch ~/ 1000),
       content: message,
     );
     widget.apiStore.kbService.messages.add(userMessage);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_model.chatScrollController != null &&
           _model.chatScrollController!.hasClients) {
@@ -1503,10 +1660,19 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
     });
 
     try {
-      await widget.apiStore.kbService.sendMessage(
+      final stream = await widget.apiStore.kbService.sendMessage(
         assistantId: widget.existingAssistant!,
         message: message,
       );
+      _handleStream(stream);
+    } catch (e) {
+      print('Error sending message with prompt: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
+      widget.apiStore.kbService.messages.removeLast();
+    } finally {
+      setState(() => _isSending = false);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_model.chatScrollController != null &&
             _model.chatScrollController!.hasClients) {
@@ -1515,11 +1681,6 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
           );
         }
       });
-    } catch (e) {
-      print('Error sending message with prompt: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
     }
   }
 
@@ -1631,10 +1792,10 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
   }
 
   Future<void> _sendMessage() async {
-    if (_model.textController!.text.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please enter a message')));
+    if (_isSending || _model.textController!.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please wait or enter a message')),
+      );
       return;
     }
     if (widget.existingAssistant == null || _assistant == null) {
@@ -1643,14 +1804,34 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
       ).showSnackBar(const SnackBar(content: Text('Assistant is missing')));
       return;
     }
-    final message = _model.textController!.text;
+
+    final message = _model.textController!.text.trim();
     _model.textController!.clear();
+
+    // Enhanced duplicate check: look for any recent identical user message
+    final messages = widget.apiStore.kbService.messages;
+    if (messages.any(
+      (m) =>
+          m.role == 'user' &&
+          m.content == message &&
+          DateTime.now()
+                  .difference(
+                    DateTime.fromMillisecondsSinceEpoch(m.createdAt * 1000),
+                  )
+                  .inSeconds <
+              5,
+    )) {
+      return; // Skip if a similar message was sent within the last 5 seconds
+    }
+
+    setState(() => _isSending = true);
     final userMessage = ThreadMessage(
       role: 'user',
       createdAt: (DateTime.now().millisecondsSinceEpoch ~/ 1000),
       content: message,
     );
     widget.apiStore.kbService.messages.add(userMessage);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_model.chatScrollController != null &&
           _model.chatScrollController!.hasClients) {
@@ -1659,11 +1840,21 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
         );
       }
     });
+
     try {
-      await widget.apiStore.kbService.sendMessage(
+      final stream = await widget.apiStore.kbService.sendMessage(
         assistantId: widget.existingAssistant!,
         message: message,
       );
+      _handleStream(stream);
+    } catch (e) {
+      print('Error sending message: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
+      widget.apiStore.kbService.messages.removeLast();
+    } finally {
+      setState(() => _isSending = false);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_model.chatScrollController != null &&
             _model.chatScrollController!.hasClients) {
@@ -1672,11 +1863,6 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
           );
         }
       });
-    } catch (e) {
-      print('Error sending message: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
     }
   }
 
@@ -2403,6 +2589,7 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                 onPressed: () {
                   debugPrint('Back button pressed');
                   widget.apiStore.kbService.knowledgeBases.clear();
+                  widget.apiStore.kbService.messages.clear();
                   Navigator.pushNamed(context, '/bots');
                 },
               ),
@@ -2720,157 +2907,153 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                   if (kbService.isLoading && kbService.messages.isEmpty) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  if (kbService.messages.isEmpty) {
+                  if (kbService.messages.isEmpty && _currentStream == null) {
                     return const Center(child: Text('No messages found'));
                   }
+
                   return SingleChildScrollView(
                     controller: _model.chatScrollController,
                     child: Column(
                       mainAxisSize: MainAxisSize.max,
-                      children:
-                          kbService.messages.map((message) {
-                            final isAssistant = message.role == 'assistant';
-                            final timestamp =
-                                DateTime.fromMillisecondsSinceEpoch(
-                                  message.createdAt * 1000,
-                                );
-                            return Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
+                      children: [
+                        ...kbService.messages.map((message) {
+                          final isAssistant = message.role == 'assistant';
+                          final timestamp = DateTime.fromMillisecondsSinceEpoch(
+                            message.createdAt * 1000,
+                          );
+                          return Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color:
+                                    isAssistant
+                                        ? theme.secondaryBackground
+                                        : theme.accent1,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
                                   color:
                                       isAssistant
-                                          ? theme.secondaryBackground
-                                          : theme.accent1,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color:
-                                        isAssistant
-                                            ? theme.alternate
-                                            : theme.primary,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.max,
-                                    mainAxisAlignment:
-                                        isAssistant
-                                            ? MainAxisAlignment.start
-                                            : MainAxisAlignment.end,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      if (isAssistant) ...[
-                                        Container(
-                                          width: 40,
-                                          height: 40,
-                                          decoration: BoxDecoration(
-                                            color: theme.primary,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Align(
-                                            alignment:
-                                                const AlignmentDirectional(
-                                                  0,
-                                                  0,
-                                                ),
-                                            child: Icon(
-                                              Icons.smart_toy_rounded,
-                                              color: theme.info,
-                                              size: 24,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                      ],
-                                      Flexible(
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.max,
-                                          crossAxisAlignment:
-                                              isAssistant
-                                                  ? CrossAxisAlignment.start
-                                                  : CrossAxisAlignment.end,
-                                          children: [
-                                            Text(
-                                              message.content,
-                                              style: theme.bodyMedium.override(
-                                                fontFamily:
-                                                    theme.bodyMediumFamily,
-                                                color: theme.primaryText,
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                    theme.bodyMedium.fontWeight,
-                                                fontStyle:
-                                                    theme.bodyMedium.fontStyle,
-                                              ),
-                                              softWrap: true,
-                                              overflow: TextOverflow.clip,
-                                            ),
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsetsDirectional.fromSTEB(
-                                                    0,
-                                                    4,
-                                                    0,
-                                                    0,
-                                                  ),
-                                              child: Text(
-                                                DateFormat(
-                                                  'hh:mm a',
-                                                ).format(timestamp),
-                                                style: theme.bodySmall.override(
-                                                  fontFamily:
-                                                      theme.bodySmallFamily,
-                                                  color: theme.secondaryText,
-                                                  letterSpacing: 0.0,
-                                                  fontWeight:
-                                                      theme
-                                                          .bodySmall
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      theme.bodySmall.fontStyle,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (!isAssistant) ...[
-                                        const SizedBox(width: 12),
-                                        Container(
-                                          width: 40,
-                                          height: 40,
-                                          decoration: BoxDecoration(
-                                            color: theme.secondaryBackground,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: theme.primary,
-                                              width: 1,
-                                            ),
-                                          ),
-                                          child: Align(
-                                            alignment:
-                                                const AlignmentDirectional(
-                                                  0,
-                                                  0,
-                                                ),
-                                            child: Icon(
-                                              Icons.person,
-                                              color: theme.primaryText,
-                                              size: 24,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
+                                          ? theme.alternate
+                                          : theme.primary,
+                                  width: 1,
                                 ),
                               ),
-                            );
-                          }).toList(),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.max,
+                                  mainAxisAlignment:
+                                      isAssistant
+                                          ? MainAxisAlignment.start
+                                          : MainAxisAlignment.end,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (isAssistant) ...[
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: theme.primary,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Align(
+                                          alignment: const AlignmentDirectional(
+                                            0,
+                                            0,
+                                          ),
+                                          child: Icon(
+                                            Icons.smart_toy_rounded,
+                                            color: theme.info,
+                                            size: 24,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                    ],
+                                    Flexible(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.max,
+                                        crossAxisAlignment:
+                                            isAssistant
+                                                ? CrossAxisAlignment.start
+                                                : CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            message.content,
+                                            style: theme.bodyMedium.override(
+                                              fontFamily:
+                                                  theme.bodyMediumFamily,
+                                              color: theme.primaryText,
+                                              letterSpacing: 0.0,
+                                              fontWeight:
+                                                  theme.bodyMedium.fontWeight,
+                                              fontStyle:
+                                                  theme.bodyMedium.fontStyle,
+                                            ),
+                                            softWrap: true,
+                                            overflow: TextOverflow.clip,
+                                          ),
+                                          Padding(
+                                            padding:
+                                                const EdgeInsetsDirectional.fromSTEB(
+                                                  0,
+                                                  4,
+                                                  0,
+                                                  0,
+                                                ),
+                                            child: Text(
+                                              DateFormat(
+                                                'hh:mm a',
+                                              ).format(timestamp),
+                                              style: theme.bodySmall.override(
+                                                fontFamily:
+                                                    theme.bodySmallFamily,
+                                                color: theme.secondaryText,
+                                                letterSpacing: 0.0,
+                                                fontWeight:
+                                                    theme.bodySmall.fontWeight,
+                                                fontStyle:
+                                                    theme.bodySmall.fontStyle,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (!isAssistant) ...[
+                                      const SizedBox(width: 12),
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: theme.secondaryBackground,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: theme.primary,
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Align(
+                                          alignment: const AlignmentDirectional(
+                                            0,
+                                            0,
+                                          ),
+                                          child: Icon(
+                                            Icons.person,
+                                            color: theme.primaryText,
+                                            size: 24,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ],
                     ),
                   );
                 },
@@ -2988,18 +3171,18 @@ class _PreviewpageWidgetState extends State<PreviewpageWidget> {
                               borderRadius: 24,
                               buttonSize: 48,
                               fillColor:
-                                  kbService.isMessageLoading
+                                  _isSending || kbService.isMessageLoading
                                       ? Colors.grey
                                       : theme.secondary,
                               icon: Icon(
-                                kbService.isMessageLoading
+                                _isSending || kbService.isMessageLoading
                                     ? Icons.hourglass_empty
                                     : Icons.send_rounded,
                                 color: theme.info,
                                 size: 24,
                               ),
                               onPressed:
-                                  kbService.isMessageLoading
+                                  _isSending || kbService.isMessageLoading
                                       ? null
                                       : _sendMessage,
                             );

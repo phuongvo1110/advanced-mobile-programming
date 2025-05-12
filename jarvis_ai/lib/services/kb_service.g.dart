@@ -522,7 +522,7 @@ mixin _$KBService on _KBService, Store {
       AsyncAction('_KBService.sendMessage', context: context);
 
   @override
-  Future<void> sendMessage(
+  Future<Stream<String>> sendMessage(
       {required String assistantId, required String message}) {
     return _$sendMessageAsyncAction.run(
         () => super.sendMessage(assistantId: assistantId, message: message));

@@ -555,7 +555,6 @@ abstract class _JarvisService with Store {
           conversationHistory.isEmpty
               ? [userMessage.toJson()]
               : [...conversationHistory, userMessage.toJson()];
-      print('Messages: $messages');
       final requestBody = {
         'content': content,
         'files': files,
